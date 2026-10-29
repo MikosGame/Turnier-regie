@@ -133,7 +133,7 @@
 
         <footer class="pt-3 border-t border-valoLightGray text-[11px] text-gray-400 flex justify-between items-center">
             <span class="text-green-400 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> v63 Aktiv
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> v64 Aktiv
             </span>
             <button onclick="resetAllData()" class="text-red-400 hover:underline text-[10px]">Alles Zurücksetzen</button>
         </footer>
@@ -193,7 +193,7 @@
 
     <script>
         let appData = { teams: [], bracket: null };
-        const STORAGE_KEY = "valo_regie_v63";
+        const STORAGE_KEY = "valo_regie_v64";
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -276,7 +276,7 @@
                 const configRaw = localStorage.getItem('valo_stream_config');
                 const config = configRaw ? JSON.parse(configRaw) : { isPlaying: true, isMuted: false };
 
-                // Wenn Kanal neu ist, komplett neuen Twitch Embed Player erzeugen
+                // Wenn Kanal neu ist, neuen Player erzwingen
                 if (lastChannelChecked !== data.channel) {
                     lastChannelChecked = data.channel;
                     document.getElementById('twitch-embed').innerHTML = ''; // Container leeren
@@ -286,20 +286,22 @@
                         width: "100%",
                         height: "100%",
                         channel: data.channel,
-                        muted: config.isMuted,
-                        autoplay: config.isPlaying,
+                        layout: "video", // <-- Chat explizit ausblenden (nur Video!)
+                        muted: true,    // <-- Für garantiert automatisches Abspielen stumm starten
+                        autoplay: true,
                         parent: [host, "localhost", "127.0.0.1"]
                     });
 
-                    // Event-Listener zum automatischen Start erzwingen sobald bereit
+                    // Sobald das Video geladen ist, per JS sofort abspielen und Ton ggf. einschalten
                     twitchPlayer.addEventListener(Twitch.Embed.VIDEO_READY, () => {
                         const player = twitchPlayer.getPlayer();
-                        if (config.isPlaying) {
-                            player.play();
+                        player.play();
+                        if (!config.isMuted) {
+                            setTimeout(() => { player.setMuted(false); }, 500);
                         }
                     });
                 } else if (twitchPlayer) {
-                    // Status (Play/Pause/Mute) anpassen falls geändert
+                    // Befehle aus dem Regie-Dock verarbeiten
                     const player = twitchPlayer.getPlayer();
                     if (player) {
                         if (config.isPlaying && player.isPaused()) {
