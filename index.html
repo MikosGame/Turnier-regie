@@ -69,11 +69,16 @@
 
         <!-- Tab 1: Teams & Spieler -->
         <div id="tabTeams" class="flex-1 overflow-y-auto space-y-4 pr-1">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xs font-bold tracking-widest uppercase text-gray-400">Teilnehmende Teams</h2>
-                <button onclick="openTeamModal()" class="bg-valoRed/20 border border-valoRed text-valoRed hover:bg-valoRed hover:text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1">
-                    <i class="fa-solid fa-plus"></i> Neues Team
-                </button>
+            <div class="flex justify-between items-center gap-2">
+                <h2 class="text-xs font-bold tracking-widest uppercase text-gray-400">Teams</h2>
+                <div class="flex gap-2">
+                    <button onclick="openImportModal()" class="bg-valoCyan/20 border border-valoCyan text-valoCyan hover:bg-valoCyan hover:text-black text-xs px-2.5 py-1.5 rounded font-bold transition flex items-center gap-1">
+                        <i class="fa-solid fa-file-import"></i> Import
+                    </button>
+                    <button onclick="openTeamModal()" class="bg-valoRed/20 border border-valoRed text-valoRed hover:bg-valoRed hover:text-white text-xs px-2.5 py-1.5 rounded font-bold transition flex items-center gap-1">
+                        <i class="fa-solid fa-plus"></i> + Team
+                    </button>
+                </div>
             </div>
             <div id="teamsContainer" class="space-y-3"></div>
         </div>
@@ -113,7 +118,7 @@
         </footer>
     </div>
 
-    <!-- MODAL -->
+    <!-- TEAM MODAL -->
     <div id="teamModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
         <div class="bg-valoDark border border-valoLightGray w-full max-w-sm rounded-xl p-5 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center pb-2 border-b border-valoLightGray">
@@ -144,9 +149,30 @@
         </div>
     </div>
 
+    <!-- IMPORT MODAL -->
+    <div id="importModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-valoDark border border-valoLightGray w-full max-w-md rounded-xl p-5 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center pb-2 border-b border-valoLightGray">
+                <h3 class="font-bold text-sm uppercase tracking-wider text-valoCyan">Teams per Text / JSON Importieren</h3>
+                <button onclick="closeImportModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs font-bold text-gray-400 uppercase">Format: Teamname = Spieler1, Spieler2...</label>
+                    <button onclick="fillExampleImport()" class="text-[10px] text-valoCyan hover:underline">Beispiel einfügen</button>
+                </div>
+                <textarea id="importTextarea" rows="8" class="w-full bg-valoDarker border border-valoLightGray rounded p-2 text-xs text-white font-mono outline-none focus:border-valoCyan" placeholder="Team Alpha = SpielerA, SpielerB&#10;Team Beta = SpielerC, SpielerD"></textarea>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-valoLightGray">
+                <button onclick="closeImportModal()" class="bg-valoGray hover:bg-valoLightGray text-xs px-4 py-2 rounded font-bold transition">Abbrechen</button>
+                <button onclick="processImport()" class="bg-valoCyan hover:bg-cyan-400 text-black text-xs px-4 py-2 rounded font-bold transition">Jetzt Importieren</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let appData = { teams: [], bracket: null };
-        const STORAGE_KEY = "valo_regie_v50";
+        const STORAGE_KEY = "valo_regie_v60";
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -238,7 +264,7 @@
         function renderTeams() {
             const container = document.getElementById('teamsContainer');
             if (!appData.teams || appData.teams.length === 0) {
-                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Keine Teams vorhanden. Klicke auf "+ Neues Team".</div>`;
+                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Keine Teams vorhanden. Klicke auf "Import" oder "+ Team".</div>`;
                 return;
             }
 
@@ -294,6 +320,7 @@
             renderQuickPlayers();
         }
 
+        // TEAM MODAL
         function openTeamModal() {
             document.getElementById('modalTeamName').value = '';
             document.getElementById('modalPlayersContainer').innerHTML = '';
@@ -344,6 +371,69 @@
             saveData();
             renderTeams();
             generateBracket();
+        }
+
+        // IMPORT MODAL LOGIK
+        function openImportModal() {
+            document.getElementById('importTextarea').value = '';
+            document.getElementById('importModal').classList.remove('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.add('hidden');
+        }
+
+        function fillExampleImport() {
+            const example = 
+`Team ANNI = anni, mergim, reved
+Team AYMAN = ayman, repst, eloquenze
+Team MICHEL = michel, adi, fibii
+Team HACI = haci, mansadi, nickeato`;
+            document.getElementById('importTextarea').value = example;
+        }
+
+        function processImport() {
+            const text = document.getElementById('importTextarea').value.trim();
+            if(!text) return alert("Bitte Text zum Importieren eingeben!");
+
+            const colors = ['#FF4655', '#00F5FF', '#E91E63', '#9C27B0', '#FF9800', '#4CAF50', '#2196F3', '#FFEB3B'];
+            const lines = text.split('\n');
+            let importedCount = 0;
+
+            lines.forEach((line, idx) => {
+                const trimmed = line.trim();
+                if(!trimmed || !trimmed.includes('=')) return;
+
+                const parts = trimmed.split('=');
+                const teamName = parts[0].trim();
+                const playerNames = parts[1].split(',').map(p => p.trim()).filter(p => p.length > 0);
+
+                if(teamName && playerNames.length > 0) {
+                    const players = playerNames.map(p => ({
+                        id: 'p_' + Math.random().toString(36).substr(2, 5),
+                        name: p,
+                        channel: p.toLowerCase()
+                    }));
+
+                    appData.teams.push({
+                        id: 'team_' + Math.random().toString(36).substr(2, 5),
+                        name: teamName,
+                        color: colors[importedCount % colors.length],
+                        players: players
+                    });
+                    importedCount++;
+                }
+            });
+
+            if(importedCount > 0) {
+                saveData();
+                renderTeams();
+                generateBracket();
+                closeImportModal();
+                alert(`${importedCount} Teams erfolgreich importiert!`);
+            } else {
+                alert("Format nicht erkannt. Bitte erstelle Zeilen wie:\nTeamname = Spieler1, Spieler2");
+            }
         }
 
         // TURNIERBAUM DYNAMISCH GENERIEREN
