@@ -234,7 +234,36 @@
         let twitchPlayer = null;
         let playerGen = 0;
 
+        // --- DEBUG OVERLAY (nur mit &debug=1 in der URL) ---
+        const isDebug = urlParams.get('debug') === '1';
+        const debugLines = [];
+        function dbg(msg) {
+            if (!isDebug) return;
+            const t = new Date().toLocaleTimeString('de-DE') + '.' + String(Date.now() % 1000).padStart(3, '0');
+            debugLines.push(t + ' ' + msg);
+            if (debugLines.length > 25) debugLines.shift();
+            let box = document.getElementById('debugOverlay');
+            if (!box) {
+                box = document.createElement('pre');
+                box.id = 'debugOverlay';
+                box.style.cssText = 'position:fixed;bottom:0;left:0;z-index:9999;max-width:60%;margin:0;padding:8px;background:rgba(0,0,0,.8);color:#0f0;font:12px monospace;white-space:pre-wrap;pointer-events:none';
+                document.body.appendChild(box);
+            }
+            box.textContent = debugLines.join('\n');
+        }
+        function dbgState(tag) {
+            if (!isDebug) return;
+            let s = 'gen=' + playerGen + ' ch=' + lastChannel + ' vis=' + document.visibilityState + ' focus=' + document.hasFocus();
+            if (navigator.userActivation) s += ' activated=' + navigator.userActivation.hasBeenActive;
+            try { if (twitchPlayer) s += ' paused=' + twitchPlayer.isPaused() + ' muted=' + twitchPlayer.getMuted(); } catch(e) { s += ' state-err=' + e.message; }
+            dbg(tag + ' ' + s);
+        }
+
         function initDisplayReceiver() {
+            if (isDebug) {
+                dbg('start obsstudio=' + (window.obsstudio ? window.obsstudio.pluginVersion : 'nein') + ' host=' + window.location.hostname);
+                setInterval(() => dbgState('status'), 3000);
+            }
             checkStreamDisplay();
             setInterval(checkStreamDisplay, 500);
             // Watchdog: pausierter Player wird (stumm) neu gestartet
@@ -242,10 +271,11 @@
                 if (twitchPlayer && lastChannel) {
                     try {
                         if (twitchPlayer.isPaused()) {
+                            dbgState('watchdog: pausiert -> play()');
                             twitchPlayer.setMuted(true);
                             twitchPlayer.play();
                         }
-                    } catch(e) {}
+                    } catch(e) { dbg('watchdog-fehler: ' + e.message); }
                 }
             }, 1500);
             window.addEventListener('storage', (e) => {
@@ -267,9 +297,16 @@
                 muted: true
             });
             twitchPlayer = player;
+            dbg('buildPlayer gen=' + gen + ' ch=' + channel);
+            if (isDebug) {
+                ['READY', 'PLAY', 'PLAYING', 'PAUSE', 'PLAYBACK_BLOCKED', 'ENDED', 'ONLINE', 'OFFLINE'].forEach(name => {
+                    if (Twitch.Player[name]) player.addEventListener(Twitch.Player[name], () => dbgState('EVENT ' + name + ' (gen ' + gen + ')'));
+                });
+            }
 
             const tryUnmute = () => {
                 if (gen !== playerGen) return;
+                dbg('tryUnmute gen=' + gen);
                 try { player.setMuted(false); } catch(e) {}
                 // Kontrolle: wurde durch das Entstummen pausiert? Dann stumm weiterlaufen lassen
                 setTimeout(() => {
