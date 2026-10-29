@@ -226,56 +226,69 @@
         }
 
         // --- PURES VIDEO EMBEDDING (OHNE CHAT) ---
-        // Twitch Player API: ein Player wird einmal erstellt, Kanalwechsel per setChannel()
-        // und play() wird automatisch aufgerufen, kein manuelles Starten mehr noetig.
+        // Bei jedem Kanalwechsel wird ein frischer Player gebaut, der STUMM autoplayt
+        // (stummes Autoplay erlaubt jeder Browser, auch ohne Klick). Sobald das Video
+        // laeuft, wird per API entstummt. Falls der Browser das Entstummen verweigert
+        // und dabei pausiert, laeuft das Video stumm weiter statt stehenzubleiben.
         let lastChannel = null;
         let twitchPlayer = null;
-        let playerReady = false;
-        let wantedChannel = null;
+        let playerGen = 0;
 
         function initDisplayReceiver() {
             checkStreamDisplay();
             setInterval(checkStreamDisplay, 500);
-            // Watchdog: falls der Player pausiert/haengt, erneut starten
+            // Watchdog: pausierter Player wird (stumm) neu gestartet
             setInterval(() => {
-                if (twitchPlayer && playerReady && wantedChannel) {
-                    try { if (twitchPlayer.isPaused()) twitchPlayer.play(); } catch(e) {}
+                if (twitchPlayer && lastChannel) {
+                    try {
+                        if (twitchPlayer.isPaused()) {
+                            twitchPlayer.setMuted(true);
+                            twitchPlayer.play();
+                        }
+                    } catch(e) {}
                 }
-            }, 2000);
+            }, 1500);
             window.addEventListener('storage', (e) => {
                 if (e.key === 'valo_active_stream') checkStreamDisplay();
             });
         }
 
-        function startPlayback() {
-            if (!twitchPlayer) return;
-            try {
-                twitchPlayer.setMuted(false);
-                twitchPlayer.play();
-            } catch(e) {}
-        }
-
-        function createPlayer(channel) {
+        function buildPlayer(channel) {
+            const container = document.getElementById('videoContainer');
+            container.innerHTML = '';
+            const gen = ++playerGen;
             const host = window.location.hostname || "localhost";
-            twitchPlayer = new Twitch.Player("videoContainer", {
+            const player = new Twitch.Player("videoContainer", {
                 channel: channel,
                 parent: [host, "localhost", "127.0.0.1"],
                 width: "100%",
                 height: "100%",
                 autoplay: true,
-                muted: false
+                muted: true
             });
-            twitchPlayer.addEventListener(Twitch.Player.READY, () => {
-                playerReady = true;
-                if (wantedChannel && wantedChannel !== channel) twitchPlayer.setChannel(wantedChannel);
-                startPlayback();
+            twitchPlayer = player;
+
+            const tryUnmute = () => {
+                if (gen !== playerGen) return;
+                try { player.setMuted(false); } catch(e) {}
+                // Kontrolle: wurde durch das Entstummen pausiert? Dann stumm weiterlaufen lassen
+                setTimeout(() => {
+                    if (gen !== playerGen) return;
+                    try {
+                        if (player.isPaused()) { player.setMuted(true); player.play(); }
+                    } catch(e) {}
+                }, 1200);
+            };
+
+            player.addEventListener(Twitch.Player.READY, () => {
+                if (gen !== playerGen) return;
+                try { player.setMuted(true); player.play(); } catch(e) {}
             });
-            // Wenn Autoplay mit Ton blockiert wird: stumm starten, danach entstummen
-            twitchPlayer.addEventListener(Twitch.Player.PLAYBACK_BLOCKED, () => {
-                try { twitchPlayer.setMuted(true); twitchPlayer.play(); } catch(e) {}
-                setTimeout(() => { try { twitchPlayer.setMuted(false); } catch(e) {} }, 1500);
+            player.addEventListener(Twitch.Player.PLAYING, () => {
+                if (gen !== playerGen) return;
+                // einmalig pro Player entstummen
+                if (!player.__unmuted) { player.__unmuted = true; setTimeout(tryUnmute, 300); }
             });
-            twitchPlayer.addEventListener(Twitch.Player.OFFLINE, () => {});
         }
 
         function checkStreamDisplay() {
@@ -288,10 +301,11 @@
                 placeholder.classList.remove('hidden');
                 hud.classList.add('hidden');
                 if (lastChannel !== null) {
+                    playerGen++;
                     try { if (twitchPlayer) twitchPlayer.pause(); } catch(e) {}
                     container.innerHTML = '';
-                    twitchPlayer = null; playerReady = false;
-                    lastChannel = null; wantedChannel = null;
+                    twitchPlayer = null;
+                    lastChannel = null;
                 }
                 return;
             }
@@ -305,14 +319,7 @@
 
                 if (lastChannel !== data.channel) {
                     lastChannel = data.channel;
-                    wantedChannel = data.channel;
-                    if (!twitchPlayer) {
-                        createPlayer(data.channel);
-                    } else if (playerReady) {
-                        twitchPlayer.setChannel(data.channel);
-                        setTimeout(startPlayback, 500);
-                        setTimeout(startPlayback, 2000);
-                    }
+                    buildPlayer(data.channel);
                 }
             } catch(e) {}
         }
