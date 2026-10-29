@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Valorant Tournament Regie & Display</title>
+    <title>Valorant Tournament Regie</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://player.twitch.tv/js/embed/v1.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -23,8 +24,6 @@
         }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Offizielles Twitch Embed Script -->
-    <script src="https://embed.twitch.tv/embed/v1.js"></script>
     <style>
         body { background-color: #0F1923; color: #ECE8E1; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -37,8 +36,8 @@
 
     <!-- ==================== DISPLAY VIEW (OBS BROWSERQUELLE) ==================== -->
     <div id="viewDisplay" class="hidden w-screen h-screen overflow-hidden bg-black relative flex items-center justify-center">
-        <!-- Twitch Embedded Player Container -->
-        <div id="twitch-embed" class="absolute inset-0 w-full h-full"></div>
+        <!-- Reines Video-Container ohne Chat -->
+        <div id="videoContainer" class="absolute inset-0 w-full h-full"></div>
         
         <div id="displayPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center bg-valoDarker text-valoRed z-10">
             <i class="fa-solid fa-video-slash text-6xl mb-4 animate-pulse"></i>
@@ -100,26 +99,15 @@
                 </div>
                 <p class="text-[11px] text-gray-400">Klicke auf ein Team im Match, um es als Gewinner in die nächste Runde einziehen zu lassen.</p>
             </div>
-
             <div id="bracketContainer" class="space-y-6"></div>
         </div>
 
-        <!-- Tab 3: Direkt Regie & Stream-Steuerung -->
+        <!-- Tab 3: Direkt Regie -->
         <div id="tabControl" class="flex-1 overflow-y-auto space-y-4 pr-1 hidden">
-            <div class="bg-valoDarker p-4 rounded-lg border border-valoLightGray space-y-3">
+            <div class="bg-valoDarker p-4 rounded-lg border border-valoLightGray space-y-3 text-center">
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Aktueller Live Stream</h3>
                 <div id="currentLiveDisplay" class="text-sm font-bold text-valoCyan">Kein Stream aktiv</div>
                 
-                <!-- Fernsteuerung direkt im Regie-Dock -->
-                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-valoLightGray">
-                    <button onclick="togglePlayDock()" id="dockPlayBtn" class="bg-valoGray hover:bg-valoLightGray text-white text-xs py-2 rounded font-bold transition flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-pause" id="dockPlayIcon"></i> <span id="dockPlayText">Pause</span>
-                    </button>
-                    <button onclick="toggleMuteDock()" id="dockMuteBtn" class="bg-valoGray hover:bg-valoLightGray text-white text-xs py-2 rounded font-bold transition flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-volume-high" id="dockMuteIcon"></i> <span id="dockMuteText">Ton an</span>
-                    </button>
-                </div>
-
                 <button onclick="stopStream()" class="w-full bg-red-900/40 border border-red-500 text-red-300 hover:bg-red-900 text-xs py-2 rounded font-bold transition">
                     <i class="fa-solid fa-stop"></i> Stream stoppen / Verdunkeln
                 </button>
@@ -133,7 +121,7 @@
 
         <footer class="pt-3 border-t border-valoLightGray text-[11px] text-gray-400 flex justify-between items-center">
             <span class="text-green-400 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> v64 Aktiv
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> v7.0 Ready
             </span>
             <button onclick="resetAllData()" class="text-red-400 hover:underline text-[10px]">Alles Zurücksetzen</button>
         </footer>
@@ -174,7 +162,7 @@
     <div id="importModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
         <div class="bg-valoDark border border-valoLightGray w-full max-w-md rounded-xl p-5 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center pb-2 border-b border-valoLightGray">
-                <h3 class="font-bold text-sm uppercase tracking-wider text-valoCyan">Teams per Text / JSON Importieren</h3>
+                <h3 class="font-bold text-sm uppercase tracking-wider text-valoCyan">Teams per Text Importieren</h3>
                 <button onclick="closeImportModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-3">
@@ -193,7 +181,7 @@
 
     <script>
         let appData = { teams: [], bracket: null };
-        const STORAGE_KEY = "valo_regie_v64";
+        const STORAGE_KEY = "valo_regie_v70";
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -228,7 +216,6 @@
                 document.getElementById('viewDock').classList.remove('hidden');
                 renderTeams();
                 renderBracketHTML();
-                initDockSync();
             }
         });
 
@@ -238,30 +225,73 @@
             navigator.clipboard.writeText(displayUrl).then(() => alert("OBS URL kopiert: " + displayUrl));
         }
 
-        // --- TWITCH EMBED API PLAYER STEUERUNG ---
+        // --- PURES VIDEO EMBEDDING (OHNE CHAT) ---
+        // Twitch Player API: ein Player wird einmal erstellt, Kanalwechsel per setChannel()
+        // und play() wird automatisch aufgerufen, kein manuelles Starten mehr noetig.
+        let lastChannel = null;
         let twitchPlayer = null;
-        let lastChannelChecked = null;
+        let playerReady = false;
+        let wantedChannel = null;
 
         function initDisplayReceiver() {
             checkStreamDisplay();
-            setInterval(checkStreamDisplay, 300);
+            setInterval(checkStreamDisplay, 500);
+            // Watchdog: falls der Player pausiert/haengt, erneut starten
+            setInterval(() => {
+                if (twitchPlayer && playerReady && wantedChannel) {
+                    try { if (twitchPlayer.isPaused()) twitchPlayer.play(); } catch(e) {}
+                }
+            }, 2000);
             window.addEventListener('storage', (e) => {
-                if (e.key === 'valo_active_stream' || e.key === 'valo_stream_config') checkStreamDisplay();
+                if (e.key === 'valo_active_stream') checkStreamDisplay();
             });
+        }
+
+        function startPlayback() {
+            if (!twitchPlayer) return;
+            try {
+                twitchPlayer.setMuted(false);
+                twitchPlayer.play();
+            } catch(e) {}
+        }
+
+        function createPlayer(channel) {
+            const host = window.location.hostname || "localhost";
+            twitchPlayer = new Twitch.Player("videoContainer", {
+                channel: channel,
+                parent: [host, "localhost", "127.0.0.1"],
+                width: "100%",
+                height: "100%",
+                autoplay: true,
+                muted: false
+            });
+            twitchPlayer.addEventListener(Twitch.Player.READY, () => {
+                playerReady = true;
+                if (wantedChannel && wantedChannel !== channel) twitchPlayer.setChannel(wantedChannel);
+                startPlayback();
+            });
+            // Wenn Autoplay mit Ton blockiert wird: stumm starten, danach entstummen
+            twitchPlayer.addEventListener(Twitch.Player.PLAYBACK_BLOCKED, () => {
+                try { twitchPlayer.setMuted(true); twitchPlayer.play(); } catch(e) {}
+                setTimeout(() => { try { twitchPlayer.setMuted(false); } catch(e) {} }, 1500);
+            });
+            twitchPlayer.addEventListener(Twitch.Player.OFFLINE, () => {});
         }
 
         function checkStreamDisplay() {
             const raw = localStorage.getItem('valo_active_stream');
             const placeholder = document.getElementById('displayPlaceholder');
             const hud = document.getElementById('displayHud');
+            const container = document.getElementById('videoContainer');
 
             if (!raw) {
                 placeholder.classList.remove('hidden');
                 hud.classList.add('hidden');
-                if (twitchPlayer) {
-                    document.getElementById('twitch-embed').innerHTML = '';
-                    twitchPlayer = null;
-                    lastChannelChecked = null;
+                if (lastChannel !== null) {
+                    try { if (twitchPlayer) twitchPlayer.pause(); } catch(e) {}
+                    container.innerHTML = '';
+                    twitchPlayer = null; playerReady = false;
+                    lastChannel = null; wantedChannel = null;
                 }
                 return;
             }
@@ -273,119 +303,27 @@
                 document.getElementById('hudPlayerName').innerText = data.playerName || data.channel;
                 hud.classList.remove('hidden');
 
-                const configRaw = localStorage.getItem('valo_stream_config');
-                const config = configRaw ? JSON.parse(configRaw) : { isPlaying: true, isMuted: false };
-
-                // Wenn Kanal neu ist, neuen Player erzwingen
-                if (lastChannelChecked !== data.channel) {
-                    lastChannelChecked = data.channel;
-                    document.getElementById('twitch-embed').innerHTML = ''; // Container leeren
-                    
-                    const host = window.location.hostname || "localhost";
-                    twitchPlayer = new Twitch.Embed("twitch-embed", {
-                        width: "100%",
-                        height: "100%",
-                        channel: data.channel,
-                        layout: "video", // <-- Chat explizit ausblenden (nur Video!)
-                        muted: true,    // <-- Für garantiert automatisches Abspielen stumm starten
-                        autoplay: true,
-                        parent: [host, "localhost", "127.0.0.1"]
-                    });
-
-                    // Sobald das Video geladen ist, per JS sofort abspielen und Ton ggf. einschalten
-                    twitchPlayer.addEventListener(Twitch.Embed.VIDEO_READY, () => {
-                        const player = twitchPlayer.getPlayer();
-                        player.play();
-                        if (!config.isMuted) {
-                            setTimeout(() => { player.setMuted(false); }, 500);
-                        }
-                    });
-                } else if (twitchPlayer) {
-                    // Befehle aus dem Regie-Dock verarbeiten
-                    const player = twitchPlayer.getPlayer();
-                    if (player) {
-                        if (config.isPlaying && player.isPaused()) {
-                            player.play();
-                        } else if (!config.isPlaying && !player.isPaused()) {
-                            player.pause();
-                        }
-                        if (config.isMuted && !player.getMuted()) {
-                            player.setMuted(true);
-                        } else if (!config.isMuted && player.getMuted()) {
-                            player.setMuted(false);
-                        }
+                if (lastChannel !== data.channel) {
+                    lastChannel = data.channel;
+                    wantedChannel = data.channel;
+                    if (!twitchPlayer) {
+                        createPlayer(data.channel);
+                    } else if (playerReady) {
+                        twitchPlayer.setChannel(data.channel);
+                        setTimeout(startPlayback, 500);
+                        setTimeout(startPlayback, 2000);
                     }
                 }
             } catch(e) {}
         }
 
-        // --- DOCK FERNSTEUERUNG ---
-        function initDockSync() {
-            setInterval(updateDockUI, 500);
-        }
-
-        function updateDockUI() {
-            const raw = localStorage.getItem('valo_active_stream');
-            const configRaw = localStorage.getItem('valo_stream_config');
-            const config = configRaw ? JSON.parse(configRaw) : { isPlaying: true, isMuted: false };
-
-            const playIcon = document.getElementById('dockPlayIcon');
-            const playText = document.getElementById('dockPlayText');
-            if (config.isPlaying) {
-                playIcon.className = "fa-solid fa-pause";
-                playText.innerText = "Pause";
-            } else {
-                playIcon.className = "fa-solid fa-play";
-                playText.innerText = "Fortsetzen";
-            }
-
-            const muteIcon = document.getElementById('dockMuteIcon');
-            const muteText = document.getElementById('dockMuteText');
-            if (config.isMuted) {
-                muteIcon.className = "fa-solid fa-volume-xmark";
-                muteText.innerText = "Stumm";
-            } else {
-                muteIcon.className = "fa-solid fa-volume-high";
-                muteText.innerText = "Ton an";
-            }
-
-            if (raw) {
-                try {
-                    const d = JSON.parse(raw);
-                    document.getElementById('currentLiveDisplay').innerText = `${d.teamName} - ${d.playerName}`;
-                } catch(e) {}
-            } else {
-                document.getElementById('currentLiveDisplay').innerText = "Kein Stream aktiv";
-            }
-        }
-
-        function togglePlayDock() {
-            const configRaw = localStorage.getItem('valo_stream_config');
-            let config = configRaw ? JSON.parse(configRaw) : { isPlaying: true, isMuted: false };
-            config.isPlaying = !config.isPlaying;
-            localStorage.setItem('valo_stream_config', JSON.stringify(config));
-            updateDockUI();
-        }
-
-        function toggleMuteDock() {
-            const configRaw = localStorage.getItem('valo_stream_config');
-            let config = configRaw ? JSON.parse(configRaw) : { isPlaying: true, isMuted: false };
-            config.isMuted = !config.isMuted;
-            localStorage.setItem('valo_stream_config', JSON.stringify(config));
-            updateDockUI();
-        }
-
         function setLiveStream(teamName, playerName, channel) {
             localStorage.setItem('valo_active_stream', JSON.stringify({ teamName, playerName, channel, timestamp: Date.now() }));
-            localStorage.setItem('valo_stream_config', JSON.stringify({ isPlaying: true, isMuted: false }));
-            updateDockUI();
             renderQuickPlayers();
         }
 
         function stopStream() {
             localStorage.removeItem('valo_active_stream');
-            localStorage.removeItem('valo_stream_config');
-            updateDockUI();
             renderQuickPlayers();
         }
 
@@ -421,7 +359,7 @@
                             <div class="flex justify-between items-center text-xs bg-valoGray/30 p-1.5 rounded">
                                 <span class="font-bold text-white">${p.name}</span>
                                 <div class="flex gap-1">
-                                    <a href="https://twitch.tv/${p.channel}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded text-[10px] font-bold">Twitch</a>
+                                    <a href="https://twitch.tv/${p.channel}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded text-[10px] font-bold" title="Im Browser öffnen (Werbefrei mit Turbo)">Browser</a>
                                     <button onclick="setLiveStream('${team.name}', '${p.name}', '${p.channel}')" class="bg-valoRed hover:bg-red-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">OBS Live</button>
                                 </div>
                             </div>
@@ -449,7 +387,7 @@
             container.innerHTML = html || '<div class="text-xs text-gray-500 text-center">Keine Spieler vorhanden.</div>';
         }
 
-        // TEAM MODAL
+        // MODAL & BRACKET LOGIK
         function openTeamModal() {
             document.getElementById('modalTeamName').value = '';
             document.getElementById('modalPlayersContainer').innerHTML = '';
@@ -502,32 +440,26 @@
             generateBracket();
         }
 
-        // IMPORT MODAL LOGIK
         function openImportModal() {
             document.getElementById('importTextarea').value = '';
             document.getElementById('importModal').classList.remove('hidden');
         }
 
-        function closeImportModal() {
-            document.getElementById('importModal').classList.add('hidden');
-        }
+        function closeImportModal() { document.getElementById('importModal').classList.add('hidden'); }
 
         function fillExampleImport() {
-            const example = 
-`Team ANNI = anni, mergim, reved
-Team AYMAN = ayman, repst, eloquenze
-Team MICHEL = michel, adi, fibii
-Team HACI = haci, mansadi, nickeato`;
-            document.getElementById('importTextarea').value = example;
+            document.getElementById('importTextarea').value = 
+`Team Alpha = spieler1, spieler2
+Team Beta = spieler3, spieler4`;
         }
 
         function processImport() {
             const text = document.getElementById('importTextarea').value.trim();
-            if(!text) return alert("Bitte Text zum Importieren eingeben!");
+            if(!text) return;
 
-            const colors = ['#FF4655', '#00F5FF', '#E91E63', '#9C27B0', '#FF9800', '#4CAF50', '#2196F3', '#FFEB3B'];
+            const colors = ['#FF4655', '#00F5FF', '#E91E63', '#9C27B0', '#FF9800', '#4CAF50', '#2196F3'];
             const lines = text.split('\n');
-            let importedCount = 0;
+            let count = 0;
 
             lines.forEach((line) => {
                 const trimmed = line.trim();
@@ -547,25 +479,21 @@ Team HACI = haci, mansadi, nickeato`;
                     appData.teams.push({
                         id: 'team_' + Math.random().toString(36).substr(2, 5),
                         name: teamName,
-                        color: colors[importedCount % colors.length],
+                        color: colors[count % colors.length],
                         players: players
                     });
-                    importedCount++;
+                    count++;
                 }
             });
 
-            if(importedCount > 0) {
+            if(count > 0) {
                 saveData();
                 renderTeams();
                 generateBracket();
                 closeImportModal();
-                alert(`${importedCount} Teams erfolgreich importiert!`);
-            } else {
-                alert("Format nicht erkannt. Bitte erstelle Zeilen wie:\nTeamname = Spieler1, Spieler2");
             }
         }
 
-        // TURNIERBAUM DYNAMISCH GENERIEREN
         function generateBracket() {
             if(!appData.teams || appData.teams.length < 2) {
                 appData.bracket = null;
@@ -596,16 +524,15 @@ Team HACI = haci, mansadi, nickeato`;
 
         function renderBracketHTML() {
             const container = document.getElementById('bracketContainer');
-            if(!appData.bracket || !appData.bracket.round1 || appData.bracket.round1.length === 0) {
-                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Lege mindestens 2 Teams an und klicke auf "Baum Generieren".</div>`;
+            if(!appData.bracket || !appData.bracket.round1) {
+                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Kein Turnierbaum generiert.</div>`;
                 return;
             }
 
             const { round1, round2 } = appData.bracket;
             let html = `<div class="space-y-6">`;
 
-            // RUNDE 1
-            html += `<div class="space-y-2"><h4 class="text-[11px] font-black uppercase text-valoRed border-b border-valoLightGray pb-1">Runde 1 (${round1.length} Duelle)</h4>`;
+            html += `<div class="space-y-2"><h4 class="text-[11px] font-black uppercase text-valoRed border-b border-valoLightGray pb-1">Runde 1</h4>`;
             round1.forEach((m, idx) => {
                 const t1Name = m.team1 ? m.team1.name : "TBD";
                 const t2Name = m.team2 ? m.team2.name : "TBD";
@@ -627,14 +554,13 @@ Team HACI = haci, mansadi, nickeato`;
             });
             html += `</div>`;
 
-            // RUNDE 2
             if(round2 && round2.length > 0) {
-                html += `<div class="space-y-2"><h4 class="text-[11px] font-black uppercase text-valoCyan border-b border-valoLightGray pb-1">Nächste Runde / Finale</h4>`;
+                html += `<div class="space-y-2"><h4 class="text-[11px] font-black uppercase text-valoCyan border-b border-valoLightGray pb-1">Folgerunde / Finale</h4>`;
                 round2.forEach((m, idx) => {
                     const t1Name = m.team1 ? m.team1.name : "Sieger M" + (idx*2 + 1);
                     const t2Name = m.team2 ? m.team2.name : "Sieger M" + (idx*2 + 2);
-                    const w1 = m.winner && m.winner.name === t1Name;
-                    const w2 = m.winner && m.winner.name === t2Name;
+                    const w1 = m.winner && m.winner.name === m.team1?.name;
+                    const w2 = m.winner && m.winner.name === m.team2?.name;
 
                     html += `
                         <div class="bg-valoDarker border border-valoLightGray rounded p-2 space-y-1">
