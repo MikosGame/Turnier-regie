@@ -22,7 +22,6 @@
             }
         }
     </script>
-    <!-- FontAwesome für Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #0F1923; color: #ECE8E1; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -34,41 +33,29 @@
 </head>
 <body class="min-h-screen">
 
-    <!-- ==================== DISPLAY VIEW (Für OBS Browserquelle) ==================== -->
+    <!-- DISPLAY VIEW -->
     <div id="viewDisplay" class="hidden w-screen h-screen overflow-hidden bg-black relative flex items-center justify-center">
-        <!-- Direktes Twitch Embed iFrame mit dynamischer Domain-Erkennung für GitHub Pages / Web -->
         <div id="twitchContainer" class="absolute inset-0 w-full h-full"></div>
-        
-        <!-- Falls kein Stream aktiv ist -->
         <div id="displayPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center bg-valoDarker text-valoRed z-10">
             <i class="fa-solid fa-video-slash text-6xl mb-4 animate-pulse"></i>
             <h1 class="text-3xl font-black tracking-widest uppercase">Kein Stream aktiv</h1>
-            <p class="text-gray-400 text-sm mt-2">Wähle im Regie-Dock einen Spieler oder ein Team aus.</p>
         </div>
-
-        <!-- Valorant HUD Overlay (Oben Links) -->
-        <div id="displayHud" class="absolute top-6 left-6 z-20 bg-valoDark/90 border-l-4 border-valoRed px-6 py-3 rounded-r-lg shadow-2xl backdrop-blur-md hidden transition-all duration-300">
+        <div id="displayHud" class="absolute top-6 left-6 z-20 bg-valoDark/90 border-l-4 border-valoRed px-6 py-3 rounded-r-lg shadow-2xl backdrop-blur-md hidden">
             <div id="hudTeamName" class="text-xs font-bold uppercase tracking-widest text-valoRed">Team Name</div>
             <div id="hudPlayerName" class="text-2xl font-black text-white tracking-wider">SpielerName</div>
         </div>
     </div>
 
-    <!-- ==================== REGIE DOCK VIEW (Hauptbedienung) ==================== -->
+    <!-- REGIE DOCK VIEW -->
     <div id="viewDock" class="max-w-md mx-auto p-4 flex flex-col h-screen">
-        
-        <!-- Header -->
         <header class="flex items-center justify-between pb-4 border-b border-valoLightGray mb-4">
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-gamepad text-valoRed text-xl"></i>
                 <h1 class="font-black tracking-wider text-lg uppercase">Valo Regie Dock</h1>
             </div>
-            <!-- Button-Gruppe oben rechts (OBS URL direkt kopieren + Hilfe) -->
             <div class="flex items-center space-x-2">
-                <button onclick="copyDisplayUrl()" class="bg-valoRed hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1 shadow-md" title="OBS Browserquellen URL kopieren">
+                <button onclick="copyDisplayUrl()" class="bg-valoRed hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1 shadow-md">
                     <i class="fa-solid fa-link"></i> OBS URL
-                </button>
-                <button onclick="showInstructions()" class="bg-valoGray hover:bg-valoLightGray text-gray-200 text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1" title="Hilfe & Anleitung">
-                    <i class="fa-solid fa-circle-info"></i>
                 </button>
             </div>
         </header>
@@ -88,30 +75,25 @@
                     <i class="fa-solid fa-plus"></i> Neues Team
                 </button>
             </div>
-
-            <div id="teamsContainer" class="space-y-3">
-                <!-- Dynamische Team-Cards -->
-            </div>
+            <div id="teamsContainer" class="space-y-3"></div>
         </div>
 
-        <!-- Tab 2: Turnierbaum (Grafisches Bracket) -->
+        <!-- Tab 2: Turnierbaum -->
         <div id="tabBracket" class="flex-1 overflow-y-auto space-y-4 pr-1 hidden">
             <div class="bg-valoGray/40 border border-valoLightGray p-3 rounded-lg flex flex-col gap-2">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold uppercase text-gray-300">Turnier-Modus</span>
                     <button onclick="generateBracket()" class="bg-valoRed hover:bg-red-600 text-white text-xs px-4 py-2 rounded font-bold transition flex items-center gap-1 shadow-lg">
-                        <i class="fa-solid fa-dice"></i> Neu Auslosen
+                        <i class="fa-solid fa-dice"></i> Baum Generieren
                     </button>
                 </div>
-                <p class="text-[11px] text-gray-400">Klicke auf ein Team im Match, um es als Gewinner in die nächste Runde (Halbfinale / Finale) einuziehen zu lassen.</p>
+                <p class="text-[11px] text-gray-400">Klicke auf ein Team im Match, um es als Gewinner in die nächste Runde einziehen zu lassen.</p>
             </div>
 
-            <div id="bracketContainer" class="space-y-6">
-                <!-- Grafischer Turnierbaum -->
-            </div>
+            <div id="bracketContainer" class="space-y-6"></div>
         </div>
 
-        <!-- Tab 3: Direkt Regie / Master Output -->
+        <!-- Tab 3: Direkt Regie -->
         <div id="tabControl" class="flex-1 overflow-y-auto space-y-4 pr-1 hidden">
             <div class="bg-valoDarker p-4 rounded-lg border border-valoLightGray text-center space-y-3">
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Aktueller Live Stream</h3>
@@ -120,35 +102,28 @@
                     <i class="fa-solid fa-stop"></i> Stream stoppen / Verdunkeln
                 </button>
             </div>
-
-            <div class="space-y-2">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Schnellstart Alle Spieler</h3>
-                <div id="quickPlayerList" class="space-y-2">
-                    <!-- Liste aller Spieler -->
-                </div>
-            </div>
+            <div id="quickPlayerList" class="space-y-2"></div>
         </div>
 
-        <!-- Footer Status -->
         <footer class="pt-3 border-t border-valoLightGray text-[11px] text-gray-400 flex justify-between items-center">
             <span class="text-green-400 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Cloud-Modus aktiv
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> System Aktiv
             </span>
-            <span>Plug & Play v3.8</span>
+            <button onclick="resetAllData()" class="text-red-400 hover:underline text-[10px]">Alles Zurücksetzen</button>
         </footer>
     </div>
 
-    <!-- ==================== MODALS ==================== -->
+    <!-- MODAL -->
     <div id="teamModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
         <div class="bg-valoDark border border-valoLightGray w-full max-w-sm rounded-xl p-5 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center pb-2 border-b border-valoLightGray">
-                <h3 class="font-bold text-sm uppercase tracking-wider text-valoRed">Neues Team & Spieler anlegen</h3>
+                <h3 class="font-bold text-sm uppercase tracking-wider text-valoRed">Neues Team anlegen</h3>
                 <button onclick="closeTeamModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-3">
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">Team Name</label>
-                    <input type="text" id="modalTeamName" class="w-full bg-valoDarker border border-valoLightGray rounded px-3 py-2 text-sm text-white focus:border-valoRed outline-none" placeholder="z.B. Team Alpha">
+                    <input type="text" id="modalTeamName" class="w-full bg-valoDarker border border-valoLightGray rounded px-3 py-2 text-sm text-white outline-none focus:border-valoRed" placeholder="z.B. Team Alpha">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">Team Farbe</label>
@@ -156,7 +131,7 @@
                 </div>
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="block text-xs font-bold text-gray-400 uppercase">Spieler / Kanäle (Name = Channel)</label>
+                        <label class="block text-xs font-bold text-gray-400 uppercase">Spieler (Twitch Channel)</label>
                         <button onclick="addModalPlayerRow()" class="text-xs text-valoCyan hover:underline">+ Spieler</button>
                     </div>
                     <div id="modalPlayersContainer" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
@@ -169,33 +144,9 @@
         </div>
     </div>
 
-    <!-- ==================== JAVASCRIPT LOGIK ==================== -->
     <script>
-        let appData = {
-            teams: [
-                {
-                    id: "team_1",
-                    name: "Sentinels",
-                    color: "#FF4655",
-                    players: [
-                        { id: "p1", name: "TenZ", channel: "tenz" },
-                        { id: "p2", name: "Zekken", channel: "zekken" }
-                    ]
-                },
-                {
-                    id: "team_2",
-                    name: "FNATIC",
-                    color: "#FF5722",
-                    players: [
-                        { id: "p3", name: "Boaster", channel: "boaster" },
-                        { id: "p4", name: "Derke", channel: "derke" }
-                    ]
-                }
-            ],
-            bracket: null
-        };
-
-        const STORAGE_KEY = "valo_regie_dock_data_v8";
+        let appData = { teams: [], bracket: null };
+        const STORAGE_KEY = "valo_regie_v50";
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -204,6 +155,15 @@
 
         function saveData() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        function resetAllData() {
+            if(confirm("Möchtest du wirklich alle Teams und den Turnierbaum zurücksetzen?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                appData = { teams: [], bracket: null };
+                renderTeams();
+                renderBracketHTML();
+            }
         }
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -219,32 +179,20 @@
                 document.getElementById('viewDisplay').classList.add('hidden');
                 document.getElementById('viewDock').classList.remove('hidden');
                 renderTeams();
-                renderQuickPlayers();
-                if(appData.bracket) renderBracketHTML();
+                renderBracketHTML();
             }
         });
 
-        // --- URL GENERATOR / KOPIERER ---
         function copyDisplayUrl() {
             const baseUrl = window.location.href.split('?')[0];
             const displayUrl = baseUrl + "?view=display";
-            
-            navigator.clipboard.writeText(displayUrl).then(() => {
-                alert("Erfolgreich kopiert!\n\nDeine OBS Browserquellen-URL:\n" + displayUrl + "\n\n(Füge diesen Link einfach in deine OBS Browserquelle ein, Breite: 1920, Höhe: 1080)");
-            }).catch(err => {
-                prompt("Kopiere diese URL manuell für OBS:", displayUrl);
-            });
+            navigator.clipboard.writeText(displayUrl).then(() => alert("OBS URL kopiert: " + displayUrl));
         }
 
-        // --- DISPLAY RECEIVER ---
         let lastChannel = null;
-
         function initDisplayReceiver() {
             checkStream();
             setInterval(checkStream, 500);
-            window.addEventListener('storage', (e) => {
-                if (e.key === 'valo_active_stream') checkStream();
-            });
         }
 
         function checkStream() {
@@ -256,33 +204,26 @@
             if (!raw) {
                 placeholder.classList.remove('hidden');
                 hud.classList.add('hidden');
-                if (lastChannel !== null) {
-                    container.innerHTML = '';
-                    lastChannel = null;
-                }
+                if (lastChannel !== null) { container.innerHTML = ''; lastChannel = null; }
                 return;
             }
 
             try {
                 const data = JSON.parse(raw);
                 placeholder.classList.add('hidden');
-                
                 document.getElementById('hudTeamName').innerText = data.teamName || "Stream";
                 document.getElementById('hudPlayerName').innerText = data.playerName || data.channel;
                 hud.classList.remove('hidden');
 
                 if (lastChannel !== data.channel) {
                     lastChannel = data.channel;
-                    const currentHostname = window.location.hostname || "localhost";
-                    const iframeUrl = `https://player.twitch.tv/?channel=${data.channel}&parent=${currentHostname}&parent=localhost&parent=127.0.0.1&muted=false&autoplay=true`;
+                    const host = window.location.hostname || "localhost";
+                    const iframeUrl = `https://player.twitch.tv/?channel=${data.channel}&parent=${host}&parent=localhost&parent=127.0.0.1&muted=false&autoplay=true`;
                     container.innerHTML = `<iframe src="${iframeUrl}" height="100%" width="100%" frameborder="0" scrolling="no" allowfullscreen="true"></iframe>`;
                 }
-            } catch(e) {
-                console.error("Display error", e);
-            }
+            } catch(e) {}
         }
 
-        // --- DOCK STEUERUNG ---
         function switchTab(tab) {
             ['teams', 'bracket', 'control'].forEach(t => {
                 document.getElementById('tab' + capitalize(t)).classList.add('hidden');
@@ -294,11 +235,6 @@
 
         function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-        function showInstructions() {
-            alert("ANLEITUNG FÜR OBS:\n\n1. Regie-Dock:\nFüge deine GitHub-Webseiten-URL als Benutzerdefiniertes Browser-Dock ein.\n\n2. Stream-Anzeige:\nKlicke oben auf den roten 'OBS URL'-Button, füge den kopierten Link in eine OBS Browserquelle ein und setze die Auflösung auf 1920x1080.");
-        }
-
-        // --- TEAMS & SPIELER ---
         function renderTeams() {
             const container = document.getElementById('teamsContainer');
             if (!appData.teams || appData.teams.length === 0) {
@@ -311,20 +247,18 @@
                     <div class="flex justify-between items-center">
                         <div class="flex items-center space-x-2">
                             <span class="w-3 h-3 rounded-full" style="background-color: ${team.color || '#FF4655'}"></span>
-                            <h3 class="font-black text-sm tracking-wide text-white">${team.name}</h3>
+                            <h3 class="font-black text-sm text-white">${team.name}</h3>
                         </div>
                         <button onclick="deleteTeam('${team.id}')" class="text-gray-500 hover:text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
                     </div>
-                    <div class="space-y-1.5 pl-4 border-l border-valoLightGray">
+                    <div class="space-y-1.5 pl-3 border-l border-valoLightGray">
                         ${(team.players || []).map(p => `
                             <div class="flex justify-between items-center text-xs bg-valoGray/30 p-1.5 rounded">
-                                <div>
-                                    <span class="font-bold text-white">${p.name}</span>
-                                    <span class="text-gray-400 text-[10px] ml-1">(${p.channel})</span>
+                                <span class="font-bold text-white">${p.name}</span>
+                                <div class="flex gap-1">
+                                    <a href="https://twitch.tv/${p.channel}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded text-[10px] font-bold">In Twitch Öffnen</a>
+                                    <button onclick="setLiveStream('${team.name}', '${p.name}', '${p.channel}')" class="bg-valoRed hover:bg-red-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">OBS Live</button>
                                 </div>
-                                <button onclick="setLiveStream('${team.name}', '${p.name}', '${p.channel}')" class="bg-valoRed hover:bg-red-600 text-white px-2.5 py-1 rounded font-bold transition flex items-center gap-1 shadow">
-                                    <i class="fa-solid fa-play text-[10px]"></i> ON AIR
-                                </button>
                             </div>
                         `).join('')}
                     </div>
@@ -338,39 +272,20 @@
             let html = '';
             if(appData.teams) {
                 appData.teams.forEach(t => {
-                    if(t.players) {
-                        t.players.forEach(p => {
-                            html += `
-                                <div class="flex justify-between items-center bg-valoDarker p-2 rounded border border-valoLightGray text-xs">
-                                    <div>
-                                        <span class="font-bold text-white">${p.name}</span>
-                                        <span class="text-gray-400 block text-[10px]">${t.name}</span>
-                                    </div>
-                                    <button onclick="setLiveStream('${t.name}', '${p.name}', '${p.channel}')" class="bg-valoRed hover:bg-red-600 text-white px-3 py-1 rounded font-bold transition">
-                                        GO LIVE
-                                    </button>
-                                </div>
-                            `;
-                        });
-                    }
+                    (t.players || []).forEach(p => {
+                        html += `
+                            <div class="flex justify-between items-center bg-valoDarker p-2 rounded border border-valoLightGray text-xs">
+                                <div><span class="font-bold text-white">${p.name}</span><span class="text-gray-400 block text-[10px]">${t.name}</span></div>
+                                <button onclick="setLiveStream('${t.name}', '${p.name}', '${p.channel}')" class="bg-valoRed hover:bg-red-600 text-white px-3 py-1 rounded font-bold transition">GO LIVE</button>
+                            </div>`;
+                    });
                 });
             }
             container.innerHTML = html || '<div class="text-xs text-gray-500 text-center">Keine Spieler vorhanden.</div>';
-
-            const raw = localStorage.getItem('valo_active_stream');
-            if (raw) {
-                try {
-                    const d = JSON.parse(raw);
-                    document.getElementById('currentLiveDisplay').innerText = `${d.teamName} - ${d.playerName} (${d.channel})`;
-                } catch(e) {}
-            } else {
-                document.getElementById('currentLiveDisplay').innerText = "Kein Stream aktiv";
-            }
         }
 
         function setLiveStream(teamName, playerName, channel) {
-            const payload = { teamName, playerName, channel, timestamp: Date.now() };
-            localStorage.setItem('valo_active_stream', JSON.stringify(payload));
+            localStorage.setItem('valo_active_stream', JSON.stringify({ teamName, playerName, channel, timestamp: Date.now() }));
             renderQuickPlayers();
         }
 
@@ -379,19 +294,14 @@
             renderQuickPlayers();
         }
 
-        // --- TEAM MODAL ---
         function openTeamModal() {
             document.getElementById('modalTeamName').value = '';
-            document.getElementById('modalTeamColor').value = '#FF4655';
             document.getElementById('modalPlayersContainer').innerHTML = '';
-            addModalPlayerRow();
             addModalPlayerRow();
             document.getElementById('teamModal').classList.remove('hidden');
         }
 
-        function closeTeamModal() {
-            document.getElementById('teamModal').classList.add('hidden');
-        }
+        function closeTeamModal() { document.getElementById('teamModal').classList.add('hidden'); }
 
         function addModalPlayerRow() {
             const container = document.getElementById('modalPlayersContainer');
@@ -400,47 +310,32 @@
             div.className = "flex gap-2 items-center player-row-item";
             div.id = rowId;
             div.innerHTML = `
-                <input type="text" placeholder="Channel (z.B. tenz)" class="modal-channel-input flex-1 bg-valoDarker border border-valoLightGray rounded px-2 py-1.5 text-xs text-white focus:border-valoRed outline-none" oninput="autoSyncPlayerName(this)">
-                <input type="text" placeholder="Spieler Name" class="modal-name-input flex-1 bg-valoDarker border border-valoLightGray rounded px-2 py-1.5 text-xs text-white focus:border-valoRed outline-none">
-                <button onclick="document.getElementById('${rowId}').remove()" class="text-gray-500 hover:text-red-400 px-1.5"><i class="fa-solid fa-trash text-xs"></i></button>
+                <input type="text" placeholder="Twitch Name (z.B. Spieler1)" class="modal-channel-input flex-1 bg-valoDarker border border-valoLightGray rounded px-2 py-1.5 text-xs text-white outline-none">
+                <button onclick="document.getElementById('${rowId}').remove()" class="text-gray-500 hover:text-red-400 px-1"><i class="fa-solid fa-trash text-xs"></i></button>
             `;
             container.appendChild(div);
-        }
-
-        function autoSyncPlayerName(channelInput) {
-            const row = channelInput.closest('.player-row-item');
-            if(row) {
-                const nameInput = row.querySelector('.modal-name-input');
-                if(nameInput) nameInput.value = channelInput.value;
-            }
         }
 
         function saveNewTeam() {
             const name = document.getElementById('modalTeamName').value.trim();
             const color = document.getElementById('modalTeamColor').value;
-            if(!name) { alert("Bitte Teamnamen eingeben."); return; }
+            if(!name) return alert("Bitte Teamname eingeben!");
 
             const rows = document.querySelectorAll('.player-row-item');
             const players = [];
             rows.forEach(r => {
-                const channelInput = r.querySelector('.modal-channel-input');
-                const nameInput = r.querySelector('.modal-name-input');
-                if(channelInput) {
-                    const channel = channelInput.value.trim();
-                    const pName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : channel;
-                    if(channel) {
-                        players.push({ id: 'p_' + Math.random().toString(36).substr(2, 5), name: pName, channel: channel });
-                    }
+                const inp = r.querySelector('.modal-channel-input');
+                if(inp && inp.value.trim()) {
+                    const val = inp.value.trim();
+                    players.push({ id: 'p_' + Math.random().toString(36).substr(2, 5), name: val, channel: val });
                 }
             });
 
-            if(players.length === 0) { alert("Bitte mindestens einen Spieler mit Kanalnamen angeben."); return; }
-
             if(!appData.teams) appData.teams = [];
             appData.teams.push({ id: 'team_' + Math.random().toString(36).substr(2, 5), name, color, players });
-
             saveData();
             renderTeams();
+            generateBracket();
             closeTeamModal();
         }
 
@@ -448,34 +343,31 @@
             appData.teams = appData.teams.filter(t => t.id !== id);
             saveData();
             renderTeams();
+            generateBracket();
         }
 
-        // --- VISUELLER TURNIERBAUM (BRACKET GENERATOR) ---
+        // TURNIERBAUM DYNAMISCH GENERIEREN
         function generateBracket() {
             if(!appData.teams || appData.teams.length < 2) {
-                alert("Du brauchst mindestens 2 Teams für einen Turnierbaum!");
+                appData.bracket = null;
+                saveData();
+                renderBracketHTML();
                 return;
             }
 
             let shuffled = [...appData.teams];
-            for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-            }
-
             let round1 = [];
             for (let i = 0; i < shuffled.length; i += 2) {
                 if (i + 1 < shuffled.length) {
-                    round1.push({ id: 'm_r1_' + Math.random().toString(36).substr(2, 4), team1: shuffled[i], team2: shuffled[i+1], winner: null });
+                    round1.push({ id: 'm1_' + i, team1: shuffled[i], team2: shuffled[i+1], winner: null });
                 } else {
-                    round1.push({ id: 'm_r1_' + Math.random().toString(36).substr(2, 4), team1: shuffled[i], team2: { name: "Freilos (Bye)", color: "#666", players: [] }, winner: shuffled[i] });
+                    round1.push({ id: 'm1_' + i, team1: shuffled[i], team2: { name: "Freilos", color: "#444" }, winner: shuffled[i] });
                 }
             }
 
-            // Runde 2 (Halbfinale/Finale Struktur vorbereiten)
             let round2 = [];
-            for (let i = 0; i < round1.length; i += 2) {
-                round2.push({ id: 'm_r2_' + Math.random().toString(36).substr(2, 4), team1: null, team2: null, winner: null });
+            for (let i = 0; i < Math.ceil(round1.length / 2); i++) {
+                round2.push({ id: 'm2_' + i, team1: null, team2: null, winner: null });
             }
 
             appData.bracket = { round1, round2 };
@@ -485,85 +377,58 @@
 
         function renderBracketHTML() {
             const container = document.getElementById('bracketContainer');
-            if(!appData.bracket || !appData.bracket.round1) {
-                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Noch kein Turnierbaum generiert. Klicke auf "Neu Auslosen".</div>`;
+            if(!appData.bracket || !appData.bracket.round1 || appData.bracket.round1.length === 0) {
+                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Lege mindestens 2 Teams an und klicke auf "Baum Generieren".</div>`;
                 return;
             }
 
             const { round1, round2 } = appData.bracket;
-
             let html = `<div class="space-y-6">`;
-            
-            // Runde 1 Ansicht
-            html += `<div class="space-y-3">`;
-            html += `<h4 class="text-[11px] font-black uppercase tracking-wider text-valoRed border-b border-valoLightGray pb-1">Runde 1 (Viertel- / Vorrunde)</h4>`;
-            
+
+            // RUNDE 1
+            html += `<div class="space-y-2"><h4 class="text-[11px] font-black uppercase text-valoRed border-b border-valoLightGray pb-1">Runde 1 (${round1.length} Duelle)</h4>`;
             round1.forEach((m, idx) => {
-                const t1 = m.team1 ? m.team1.name : "TBD";
-                const t2 = m.team2 ? m.team2.name : "TBD";
-                const t1Won = m.winner && m.winner.name === t1;
-                const t2Won = m.winner && m.winner.name === t2;
+                const t1Name = m.team1 ? m.team1.name : "TBD";
+                const t2Name = m.team2 ? m.team2.name : "TBD";
+                const w1 = m.winner && m.winner.name === t1Name;
+                const w2 = m.winner && m.winner.name === t2Name;
 
                 html += `
-                    <div class="bg-valoDarker border border-valoLightGray rounded-lg p-2.5 space-y-1.5 shadow-md">
-                        <div class="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase">
-                            <span>Match ${idx + 1}</span>
-                            <span class="text-valoCyan">Klick auf Sieger</span>
+                    <div class="bg-valoDarker border border-valoLightGray rounded p-2 space-y-1">
+                        <div class="text-[9px] text-gray-500 uppercase font-bold">Match ${idx + 1}</div>
+                        <div onclick="selectWinner('round1', '${m.id}', 'team1')" class="flex justify-between items-center p-2 rounded cursor-pointer ${w1 ? 'bg-valoRed/30 border border-valoRed font-bold text-white' : 'bg-valoGray/30 text-gray-300 hover:bg-valoGray'}">
+                            <span class="text-xs">${t1Name}</span>
+                            ${w1 ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
                         </div>
-                        <div class="grid grid-cols-1 gap-1">
-                            <div onclick="selectWinner('round1', '${m.id}', 'team1')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${t1Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 hover:bg-valoGray text-gray-300'}">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team1?.color || '#555'}"></span>
-                                    <span class="text-xs">${t1}</span>
-                                </div>
-                                ${t1Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
-                            </div>
-                            <div onclick="selectWinner('round1', '${m.id}', 'team2')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${t2Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 hover:bg-valoGray text-gray-300'}">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team2?.color || '#555'}"></span>
-                                    <span class="text-xs">${t2}</span>
-                                </div>
-                                ${t2Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
-                            </div>
+                        <div onclick="selectWinner('round1', '${m.id}', 'team2')" class="flex justify-between items-center p-2 rounded cursor-pointer ${w2 ? 'bg-valoRed/30 border border-valoRed font-bold text-white' : 'bg-valoGray/30 text-gray-300 hover:bg-valoGray'}">
+                            <span class="text-xs">${t2Name}</span>
+                            ${w2 ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
             html += `</div>`;
 
-            // Runde 2 (Nächste Stufe / Halbfinale / Finale) falls vorhanden
+            // RUNDE 2
             if(round2 && round2.length > 0) {
-                html += `<div class="space-y-3 pt-2">`;
-                html += `<h4 class="text-[11px] font-black uppercase tracking-wider text-valoRed border-b border-valoLightGray pb-1">Nächste Runde (Halbfinale / Finale)</h4>`;
-                
+                html += `<div class="space-y-2"><h4 class="text-[11px] font-black uppercase text-valoCyan border-b border-valoLightGray pb-1">Nächste Runde / Finale</h4>`;
                 round2.forEach((m, idx) => {
-                    const t1 = m.team1 ? m.team1.name : "Gewinner Match " + (idx * 2 + 1);
-                    const t2 = m.team2 ? m.team2.name : "Gewinner Match " + (idx * 2 + 2);
-                    const t1Won = m.winner && m.winner.name === m.team1?.name;
-                    const t2Won = m.winner && m.winner.name === m.team2?.name;
-                    const hasTeams = m.team1 && m.team2;
+                    const t1Name = m.team1 ? m.team1.name : "Sieger M" + (idx*2 + 1);
+                    const t2Name = m.team2 ? m.team2.name : "Sieger M" + (idx*2 + 2);
+                    const w1 = m.winner && m.winner.name === t1Name;
+                    const w2 = m.winner && m.winner.name === t2Name;
 
                     html += `
-                        <div class="bg-valoDarker border border-valoLightGray rounded-lg p-2.5 space-y-1.5 shadow-md">
-                            <div class="text-[10px] text-gray-400 font-bold uppercase">Nächstes Match ${idx + 1}</div>
-                            <div class="grid grid-cols-1 gap-1">
-                                <div ${hasTeams ? `onclick="selectWinner('round2', '${m.id}', 'team1')"` : ''} class="flex justify-between items-center p-2 rounded ${hasTeams ? 'cursor-pointer' : 'opacity-50'} transition ${t1Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 text-gray-300'}">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team1?.color || '#555'}"></span>
-                                        <span class="text-xs">${t1}</span>
-                                    </div>
-                                    ${t1Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
-                                </div>
-                                <div ${hasTeams ? `onclick="selectWinner('round2', '${m.id}', 'team2')"` : ''} class="flex justify-between items-center p-2 rounded ${hasTeams ? 'cursor-pointer' : 'opacity-50'} transition ${t2Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 text-gray-300'}">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team2?.color || '#555'}"></span>
-                                        <span class="text-xs">${t2}</span>
-                                    </div>
-                                    ${t2Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
-                                </div>
+                        <div class="bg-valoDarker border border-valoLightGray rounded p-2 space-y-1">
+                            <div class="text-[9px] text-gray-500 uppercase font-bold">Folgematch ${idx + 1}</div>
+                            <div onclick="selectWinner('round2', '${m.id}', 'team1')" class="flex justify-between items-center p-2 rounded cursor-pointer ${w1 ? 'bg-valoCyan/30 border border-valoCyan font-bold text-white' : 'bg-valoGray/30 text-gray-300 hover:bg-valoGray'}">
+                                <span class="text-xs">${t1Name}</span>
+                                ${w1 ? '<i class="fa-solid fa-trophy text-valoCyan text-xs"></i>' : ''}
                             </div>
-                        </div>
-                    `;
+                            <div onclick="selectWinner('round2', '${m.id}', 'team2')" class="flex justify-between items-center p-2 rounded cursor-pointer ${w2 ? 'bg-valoCyan/30 border border-valoCyan font-bold text-white' : 'bg-valoGray/30 text-gray-300 hover:bg-valoGray'}">
+                                <span class="text-xs">${t2Name}</span>
+                                ${w2 ? '<i class="fa-solid fa-trophy text-valoCyan text-xs"></i>' : ''}
+                            </div>
+                        </div>`;
                 });
                 html += `</div>`;
             }
@@ -573,29 +438,20 @@
         }
 
         function selectWinner(roundName, matchId, teamKey) {
-            let round = appData.bracket[roundName];
-            let match = round.find(m => m.id === matchId);
+            let match = appData.bracket[roundName].find(m => m.id === matchId);
             if (!match) return;
 
-            let winningTeam = teamKey === 'team1' ? match.team1 : match.team2;
-            if (!winningTeam || winningTeam.name.includes("Freilos") || winningTeam.name.includes("TBD")) return;
+            let winner = teamKey === 'team1' ? match.team1 : match.team2;
+            if (!winner || winner.name === "Freilos") return;
 
-            match.winner = winningTeam;
+            match.winner = winner;
 
-            // Automatischer Aufstieg in die nächste Runde (Runde 2)
             if (roundName === 'round1' && appData.bracket.round2) {
-                let r1Index = appData.bracket.round1.findIndex(m => m.id === matchId);
-                let r2Index = Math.floor(r1Index / 2);
-                let r2Match = appData.bracket.round2[r2Index];
-                
-                if (r2Match) {
-                    if (r1Index % 2 === 0) {
-                        r2Match.team1 = winningTeam;
-                    } else {
-                        r2Match.team2 = winningTeam;
-                    }
-                    // Wenn Gewinner gewechselt wird, alten R2-Winner zurücksetzen
-                    r2Match.winner = null;
+                let idx = appData.bracket.round1.findIndex(m => m.id === matchId);
+                let targetMatch = appData.bracket.round2[Math.floor(idx / 2)];
+                if (targetMatch) {
+                    if (idx % 2 === 0) targetMatch.team1 = winner;
+                    else targetMatch.team2 = winner;
                 }
             }
 
