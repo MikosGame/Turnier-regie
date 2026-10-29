@@ -23,6 +23,8 @@
         }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Offizielles Twitch Embed Script -->
+    <script src="https://embed.twitch.tv/embed/v1.js"></script>
     <style>
         body { background-color: #0F1923; color: #ECE8E1; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -35,7 +37,8 @@
 
     <!-- ==================== DISPLAY VIEW (OBS BROWSERQUELLE) ==================== -->
     <div id="viewDisplay" class="hidden w-screen h-screen overflow-hidden bg-black relative flex items-center justify-center">
-        <div id="twitchContainer" class="absolute inset-0 w-full h-full"></div>
+        <!-- Twitch Embedded Player Container -->
+        <div id="twitch-embed" class="absolute inset-0 w-full h-full"></div>
         
         <div id="displayPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center bg-valoDarker text-valoRed z-10">
             <i class="fa-solid fa-video-slash text-6xl mb-4 animate-pulse"></i>
@@ -130,7 +133,7 @@
 
         <footer class="pt-3 border-t border-valoLightGray text-[11px] text-gray-400 flex justify-between items-center">
             <span class="text-green-400 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> v62 Aktiv
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> v63 Aktiv
             </span>
             <button onclick="resetAllData()" class="text-red-400 hover:underline text-[10px]">Alles Zurücksetzen</button>
         </footer>
@@ -190,7 +193,7 @@
 
     <script>
         let appData = { teams: [], bracket: null };
-        const STORAGE_KEY = "valo_regie_v62";
+        const STORAGE_KEY = "valo_regie_v63";
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -235,8 +238,9 @@
             navigator.clipboard.writeText(displayUrl).then(() => alert("OBS URL kopiert: " + displayUrl));
         }
 
-        // --- DISPLAY RECEIVER & STREAM STEUERUNG ---
-        let lastChannel = null;
+        // --- TWITCH EMBED API PLAYER STEUERUNG ---
+        let twitchPlayer = null;
+        let lastChannelChecked = null;
 
         function initDisplayReceiver() {
             checkStreamDisplay();
@@ -250,12 +254,15 @@
             const raw = localStorage.getItem('valo_active_stream');
             const placeholder = document.getElementById('displayPlaceholder');
             const hud = document.getElementById('displayHud');
-            const container = document.getElementById('twitchContainer');
 
             if (!raw) {
                 placeholder.classList.remove('hidden');
                 hud.classList.add('hidden');
-                if (lastChannel !== null) { container.innerHTML = ''; lastChannel = null; }
+                if (twitchPlayer) {
+                    document.getElementById('twitch-embed').innerHTML = '';
+                    twitchPlayer = null;
+                    lastChannelChecked = null;
+                }
                 return;
             }
 
@@ -266,21 +273,45 @@
                 document.getElementById('hudPlayerName').innerText = data.playerName || data.channel;
                 hud.classList.remove('hidden');
 
-                // Konfiguration auslesen (Play/Pause/Mute)
                 const configRaw = localStorage.getItem('valo_stream_config');
                 const config = configRaw ? JSON.parse(configRaw) : { isPlaying: true, isMuted: false };
 
-                // Wenn sich Kanal oder Status geändert hat, iFrame aktualisieren
-                const cacheKey = `${data.channel}_${config.isPlaying}_${config.isMuted}`;
-                if (lastChannel !== cacheKey) {
-                    lastChannel = cacheKey;
-                    if (!config.isPlaying) {
-                        container.innerHTML = `<div class="absolute inset-0 bg-black flex items-center justify-center text-gray-500 text-xl font-bold uppercase tracking-widest">Stream pausiert</div>`;
-                    } else {
-                        const host = window.location.hostname || "localhost";
-                        const mutedParam = config.isMuted ? "true" : "false";
-                        const iframeUrl = `https://player.twitch.tv/?channel=${data.channel}&parent=${host}&parent=localhost&parent=127.0.0.1&muted=${mutedParam}&autoplay=true`;
-                        container.innerHTML = `<iframe src="${iframeUrl}" height="100%" width="100%" frameborder="0" scrolling="no" allowfullscreen="true"></iframe>`;
+                // Wenn Kanal neu ist, komplett neuen Twitch Embed Player erzeugen
+                if (lastChannelChecked !== data.channel) {
+                    lastChannelChecked = data.channel;
+                    document.getElementById('twitch-embed').innerHTML = ''; // Container leeren
+                    
+                    const host = window.location.hostname || "localhost";
+                    twitchPlayer = new Twitch.Embed("twitch-embed", {
+                        width: "100%",
+                        height: "100%",
+                        channel: data.channel,
+                        muted: config.isMuted,
+                        autoplay: config.isPlaying,
+                        parent: [host, "localhost", "127.0.0.1"]
+                    });
+
+                    // Event-Listener zum automatischen Start erzwingen sobald bereit
+                    twitchPlayer.addEventListener(Twitch.Embed.VIDEO_READY, () => {
+                        const player = twitchPlayer.getPlayer();
+                        if (config.isPlaying) {
+                            player.play();
+                        }
+                    });
+                } else if (twitchPlayer) {
+                    // Status (Play/Pause/Mute) anpassen falls geändert
+                    const player = twitchPlayer.getPlayer();
+                    if (player) {
+                        if (config.isPlaying && player.isPaused()) {
+                            player.play();
+                        } else if (!config.isPlaying && !player.isPaused()) {
+                            player.pause();
+                        }
+                        if (config.isMuted && !player.getMuted()) {
+                            player.setMuted(true);
+                        } else if (!config.isMuted && player.getMuted()) {
+                            player.setMuted(false);
+                        }
                     }
                 }
             } catch(e) {}
