@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valorant Tournament Regie & Display</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        valoRed: '#FF4655',
+                        valoDark: '#0F1923',
+                        valoDarker: '#090E13',
+                        valoGray: '#1F2937',
+                        valoLightGray: '#374151',
+                        valoCyan: '#00F5FF'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome für Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #0F1923; color: #ECE8E1; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090E13; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #FF4655; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- ==================== DISPLAY VIEW (Für OBS Browserquelle) ==================== -->
+    <div id="viewDisplay" class="hidden w-screen h-screen overflow-hidden bg-black relative flex items-center justify-center">
+        <!-- Direktes Twitch Embed iFrame mit dynamischer Domain-Erkennung für GitHub Pages / Web -->
+        <div id="twitchContainer" class="absolute inset-0 w-full h-full"></div>
+        
+        <!-- Falls kein Stream aktiv ist -->
+        <div id="displayPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center bg-valoDarker text-valoRed z-10">
+            <i class="fa-solid fa-video-slash text-6xl mb-4 animate-pulse"></i>
+            <h1 class="text-3xl font-black tracking-widest uppercase">Kein Stream aktiv</h1>
+            <p class="text-gray-400 text-sm mt-2">Wähle im Regie-Dock einen Spieler oder ein Team aus.</p>
+        </div>
+
+        <!-- Valorant HUD Overlay (Oben Links) -->
+        <div id="displayHud" class="absolute top-6 left-6 z-20 bg-valoDark/90 border-l-4 border-valoRed px-6 py-3 rounded-r-lg shadow-2xl backdrop-blur-md hidden transition-all duration-300">
+            <div id="hudTeamName" class="text-xs font-bold uppercase tracking-widest text-valoRed">Team Name</div>
+            <div id="hudPlayerName" class="text-2xl font-black text-white tracking-wider">SpielerName</div>
+        </div>
+    </div>
+
+    <!-- ==================== REGIE DOCK VIEW (Hauptbedienung) ==================== -->
+    <div id="viewDock" class="max-w-md mx-auto p-4 flex flex-col h-screen">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between pb-4 border-b border-valoLightGray mb-4">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-gamepad text-valoRed text-xl"></i>
+                <h1 class="font-black tracking-wider text-lg uppercase">Valo Regie Dock</h1>
+            </div>
+            <!-- Button-Gruppe oben rechts (OBS URL direkt kopieren + Hilfe) -->
+            <div class="flex items-center space-x-2">
+                <button onclick="copyDisplayUrl()" class="bg-valoRed hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1 shadow-md" title="OBS Browserquellen URL kopieren">
+                    <i class="fa-solid fa-link"></i> OBS URL
+                </button>
+                <button onclick="showInstructions()" class="bg-valoGray hover:bg-valoLightGray text-gray-200 text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1" title="Hilfe & Anleitung">
+                    <i class="fa-solid fa-circle-info"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="grid grid-cols-3 gap-1 bg-valoDarker p-1 rounded-lg mb-4 text-xs font-bold text-center">
+            <button onclick="switchTab('teams')" id="tabBtnTeams" class="py-2 rounded bg-valoRed text-white transition">Teams</button>
+            <button onclick="switchTab('bracket')" id="tabBtnBracket" class="py-2 rounded text-gray-400 hover:text-white transition">Turnierbaum</button>
+            <button onclick="switchTab('control')" id="tabBtnControl" class="py-2 rounded text-gray-400 hover:text-white transition">Direkt Regie</button>
+        </div>
+
+        <!-- Tab 1: Teams & Spieler -->
+        <div id="tabTeams" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xs font-bold tracking-widest uppercase text-gray-400">Teilnehmende Teams</h2>
+                <button onclick="openTeamModal()" class="bg-valoRed/20 border border-valoRed text-valoRed hover:bg-valoRed hover:text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> Neues Team
+                </button>
+            </div>
+
+            <div id="teamsContainer" class="space-y-3">
+                <!-- Dynamische Team-Cards -->
+            </div>
+        </div>
+
+        <!-- Tab 2: Turnierbaum -->
+        <div id="tabBracket" class="flex-1 overflow-y-auto space-y-4 pr-1 hidden">
+            <div class="bg-valoGray/40 border border-valoLightGray p-3 rounded-lg flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold uppercase text-gray-300">Turnier-Modus</span>
+                    <button onclick="generateBracket()" class="bg-valoRed hover:bg-red-600 text-white text-xs px-4 py-2 rounded font-bold transition flex items-center gap-1 shadow-lg">
+                        <i class="fa-solid fa-dice"></i> Würfeln & Generieren
+                    </button>
+                </div>
+                <p class="text-[11px] text-gray-400">Lost alle angelegten Teams nach dem Zufallsprinzip in ein K.o.-System aus.</p>
+            </div>
+
+            <div id="bracketContainer" class="space-y-6">
+                <!-- Generierter Baum -->
+            </div>
+        </div>
+
+        <!-- Tab 3: Direkt Regie / Master Output -->
+        <div id="tabControl" class="flex-1 overflow-y-auto space-y-4 pr-1 hidden">
+            <div class="bg-valoDarker p-4 rounded-lg border border-valoLightGray text-center space-y-3">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Aktueller Live Stream</h3>
+                <div id="currentLiveDisplay" class="text-sm font-bold text-valoCyan">Kein Stream aktiv</div>
+                <button onclick="stopStream()" class="w-full bg-red-900/40 border border-red-500 text-red-300 hover:bg-red-900 text-xs py-2 rounded font-bold transition">
+                    <i class="fa-solid fa-stop"></i> Stream stoppen / Verdunkeln
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Schnellstart Alle Spieler</h3>
+                <div id="quickPlayerList" class="space-y-2">
+                    <!-- Liste aller Spieler -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Status -->
+        <footer class="pt-3 border-t border-valoLightGray text-[11px] text-gray-400 flex justify-between items-center">
+            <span class="text-green-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Cloud-Modus aktiv
+            </span>
+            <span>Plug & Play v3.7</span>
+        </footer>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+    <div id="teamModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-valoDark border border-valoLightGray w-full max-w-sm rounded-xl p-5 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center pb-2 border-b border-valoLightGray">
+                <h3 class="font-bold text-sm uppercase tracking-wider text-valoRed">Neues Team & Spieler anlegen</h3>
+                <button onclick="closeTeamModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">Team Name</label>
+                    <input type="text" id="modalTeamName" class="w-full bg-valoDarker border border-valoLightGray rounded px-3 py-2 text-sm text-white focus:border-valoRed outline-none" placeholder="z.B. Team Alpha">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">Team Farbe</label>
+                    <input type="color" id="modalTeamColor" value="#FF4655" class="w-full h-9 bg-valoDarker border border-valoLightGray rounded px-1 cursor-pointer">
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold text-gray-400 uppercase">Spieler / Kanäle (Name = Channel)</label>
+                        <button onclick="addModalPlayerRow()" class="text-xs text-valoCyan hover:underline">+ Spieler</button>
+                    </div>
+                    <div id="modalPlayersContainer" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-valoLightGray">
+                <button onclick="closeTeamModal()" class="bg-valoGray hover:bg-valoLightGray text-xs px-4 py-2 rounded font-bold transition">Abbrechen</button>
+                <button onclick="saveNewTeam()" class="bg-valoRed hover:bg-red-600 text-white text-xs px-4 py-2 rounded font-bold transition">Team Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JAVASCRIPT LOGIK ==================== -->
+    <script>
+        let appData = {
+            teams: [
+                {
+                    id: "team_1",
+                    name: "Sentinels",
+                    color: "#FF4655",
+                    players: [
+                        { id: "p1", name: "TenZ", channel: "tenz" },
+                        { id: "p2", name: "Zekken", channel: "zekken" }
+                    ]
+                }
+            ],
+            bracket: null
+        };
+
+        const STORAGE_KEY = "valo_regie_dock_data_v7";
+
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) { try { appData = JSON.parse(saved); } catch(e) {} }
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDisplayView = urlParams.get('view') === 'display';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            if (isDisplayView) {
+                document.getElementById('viewDisplay').classList.remove('hidden');
+                document.getElementById('viewDock').classList.add('hidden');
+                initDisplayReceiver();
+            } else {
+                document.getElementById('viewDisplay').classList.add('hidden');
+                document.getElementById('viewDock').classList.remove('hidden');
+                renderTeams();
+                renderQuickPlayers();
+                if(appData.bracket) renderBracketHTML();
+            }
+        });
+
+        // --- URL GENERATOR / KOPIERER ---
+        function copyDisplayUrl() {
+            const baseUrl = window.location.href.split('?')[0];
+            const displayUrl = baseUrl + "?view=display";
+            
+            navigator.clipboard.writeText(displayUrl).then(() => {
+                alert("Erfolgreich kopiert!\n\nDeine OBS Browserquellen-URL:\n" + displayUrl + "\n\n(Füge diesen Link einfach in deine OBS Browserquelle ein, Breite: 1920, Höhe: 1080)");
+            }).catch(err => {
+                prompt("Kopiere diese URL manuell für OBS:", displayUrl);
+            });
+        }
+
+        // --- DISPLAY RECEIVER ---
+        let lastChannel = null;
+
+        function initDisplayReceiver() {
+            checkStream();
+            setInterval(checkStream, 500);
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'valo_active_stream') checkStream();
+            });
+        }
+
+        function checkStream() {
+            const raw = localStorage.getItem('valo_active_stream');
+            const placeholder = document.getElementById('displayPlaceholder');
+            const hud = document.getElementById('displayHud');
+            const container = document.getElementById('twitchContainer');
+
+            if (!raw) {
+                placeholder.classList.remove('hidden');
+                hud.classList.add('hidden');
+                if (lastChannel !== null) {
+                    container.innerHTML = '';
+                    lastChannel = null;
+                }
+                return;
+            }
+
+            try {
+                const data = JSON.parse(raw);
+                placeholder.classList.add('hidden');
+                
+                document.getElementById('hudTeamName').innerText = data.teamName || "Stream";
+                document.getElementById('hudPlayerName').innerText = data.playerName || data.channel;
+                hud.classList.remove('hidden');
+
+                if (lastChannel !== data.channel) {
+                    lastChannel = data.channel;
+                    // Automatische Erkennung der aktuellen Web-Domain für fehlerfreies Twitch-Embedding
+                    const currentHostname = window.location.hostname || "localhost";
+                    const iframeUrl = `https://player.twitch.tv/?channel=${data.channel}&parent=${currentHostname}&parent=localhost&parent=127.0.0.1&muted=false&autoplay=true`;
+                    container.innerHTML = `<iframe src="${iframeUrl}" height="100%" width="100%" frameborder="0" scrolling="no" allowfullscreen="true"></iframe>`;
+                }
+            } catch(e) {
+                console.error("Display error", e);
+            }
+        }
+
+        // --- DOCK STEUERUNG ---
+        function switchTab(tab) {
+            ['teams', 'bracket', 'control'].forEach(t => {
+                document.getElementById('tab' + capitalize(t)).classList.add('hidden');
+                document.getElementById('tabBtn' + capitalize(t)).className = "py-2 rounded text-gray-400 hover:text-white transition";
+            });
+            document.getElementById('tab' + capitalize(tab)).classList.remove('hidden');
+            document.getElementById('tabBtn' + capitalize(tab)).className = "py-2 rounded bg-valoRed text-white transition";
+        }
+
+        function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+        function showInstructions() {
+            alert("ANLEITUNG FÜR OBS:\n\n1. Regie-Dock:\nFüge deine GitHub-Webseiten-URL als Benutzerdefiniertes Browser-Dock ein.\n\n2. Stream-Anzeige:\nKlicke oben auf den roten 'OBS URL'-Button, füge den kopierten Link in eine OBS Browserquelle ein und setze die Auflösung auf 1920x1080.");
+        }
+
+        // --- TEAMS & SPIELER ---
+        function renderTeams() {
+            const container = document.getElementById('teamsContainer');
+            if (!appData.teams || appData.teams.length === 0) {
+                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Keine Teams vorhanden. Klicke auf "+ Neues Team".</div>`;
+                return;
+            }
+
+            container.innerHTML = appData.teams.map(team => `
+                <div class="bg-valoDarker border border-valoLightGray rounded-lg p-3 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full" style="background-color: ${team.color || '#FF4655'}"></span>
+                            <h3 class="font-black text-sm tracking-wide text-white">${team.name}</h3>
+                        </div>
+                        <button onclick="deleteTeam('${team.id}')" class="text-gray-500 hover:text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                    <div class="space-y-1.5 pl-4 border-l border-valoLightGray">
+                        ${(team.players || []).map(p => `
+                            <div class="flex justify-between items-center text-xs bg-valoGray/30 p-1.5 rounded">
+                                <div>
+                                    <span class="font-bold text-white">${p.name}</span>
+                                    <span class="text-gray-400 text-[10px] ml-1">(${p.channel})</span>
+                                </div>
+                                <button onclick="setLiveStream('${team.name}', '${p.name}', '${p.channel}')" class="bg-valoRed hover:bg-red-600 text-white px-2.5 py-1 rounded font-bold transition flex items-center gap-1 shadow">
+                                    <i class="fa-solid fa-play text-[10px]"></i> ON AIR
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            renderQuickPlayers();
+        }
+
+        function renderQuickPlayers() {
+            const container = document.getElementById('quickPlayerList');
+            let html = '';
+            if(appData.teams) {
+                appData.teams.forEach(t => {
+                    if(t.players) {
+                        t.players.forEach(p => {
+                            html += `
+                                <div class="flex justify-between items-center bg-valoDarker p-2 rounded border border-valoLightGray text-xs">
+                                    <div>
+                                        <span class="font-bold text-white">${p.name}</span>
+                                        <span class="text-gray-400 block text-[10px]">${t.name}</span>
+                                    </div>
+                                    <button onclick="setLiveStream('${t.name}', '${p.name}', '${p.channel}')" class="bg-valoRed hover:bg-red-600 text-white px-3 py-1 rounded font-bold transition">
+                                        GO LIVE
+                                    </button>
+                                </div>
+                            `;
+                        });
+                    }
+                });
+            }
+            container.innerHTML = html || '<div class="text-xs text-gray-500 text-center">Keine Spieler vorhanden.</div>';
+
+            const raw = localStorage.getItem('valo_active_stream');
+            if (raw) {
+                try {
+                    const d = JSON.parse(raw);
+                    document.getElementById('currentLiveDisplay').innerText = `${d.teamName} - ${d.playerName} (${d.channel})`;
+                } catch(e) {}
+            } else {
+                document.getElementById('currentLiveDisplay').innerText = "Kein Stream aktiv";
+            }
+        }
+
+        function setLiveStream(teamName, playerName, channel) {
+            const payload = { teamName, playerName, channel, timestamp: Date.now() };
+            localStorage.setItem('valo_active_stream', JSON.stringify(payload));
+            renderQuickPlayers();
+        }
+
+        function stopStream() {
+            localStorage.removeItem('valo_active_stream');
+            renderQuickPlayers();
+        }
+
+        // --- TEAM MODAL ---
+        function openTeamModal() {
+            document.getElementById('modalTeamName').value = '';
+            document.getElementById('modalTeamColor').value = '#FF4655';
+            document.getElementById('modalPlayersContainer').innerHTML = '';
+            addModalPlayerRow();
+            addModalPlayerRow();
+            document.getElementById('teamModal').classList.remove('hidden');
+        }
+
+        function closeTeamModal() {
+            document.getElementById('teamModal').classList.add('hidden');
+        }
+
+        function addModalPlayerRow() {
+            const container = document.getElementById('modalPlayersContainer');
+            const rowId = 'p_row_' + Math.random().toString(36).substr(2, 5);
+            const div = document.createElement('div');
+            div.className = "flex gap-2 items-center player-row-item";
+            div.id = rowId;
+            div.innerHTML = `
+                <input type="text" placeholder="Channel (z.B. tenz)" class="modal-channel-input flex-1 bg-valoDarker border border-valoLightGray rounded px-2 py-1.5 text-xs text-white focus:border-valoRed outline-none" oninput="autoSyncPlayerName(this)">
+                <input type="text" placeholder="Spieler Name" class="modal-name-input flex-1 bg-valoDarker border border-valoLightGray rounded px-2 py-1.5 text-xs text-white focus:border-valoRed outline-none">
+                <button onclick="document.getElementById('${rowId}').remove()" class="text-gray-500 hover:text-red-400 px-1.5"><i class="fa-solid fa-trash text-xs"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function autoSyncPlayerName(channelInput) {
+            const row = channelInput.closest('.player-row-item');
+            if(row) {
+                const nameInput = row.querySelector('.modal-name-input');
+                if(nameInput) nameInput.value = channelInput.value;
+            }
+        }
+
+        function saveNewTeam() {
+            const name = document.getElementById('modalTeamName').value.trim();
+            const color = document.getElementById('modalTeamColor').value;
+            if(!name) { alert("Bitte Teamnamen eingeben."); return; }
+
+            const rows = document.querySelectorAll('.player-row-item');
+            const players = [];
+            rows.forEach(r => {
+                const channelInput = r.querySelector('.modal-channel-input');
+                const nameInput = r.querySelector('.modal-name-input');
+                if(channelInput) {
+                    const channel = channelInput.value.trim();
+                    const pName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : channel;
+                    if(channel) {
+                        players.push({ id: 'p_' + Math.random().toString(36).substr(2, 5), name: pName, channel: channel });
+                    }
+                }
+            });
+
+            if(players.length === 0) { alert("Bitte mindestens einen Spieler mit Kanalnamen angeben."); return; }
+
+            if(!appData.teams) appData.teams = [];
+            appData.teams.push({ id: 'team_' + Math.random().toString(36).substr(2, 5), name, color, players });
+
+            saveData();
+            renderTeams();
+            closeTeamModal();
+        }
+
+        function deleteTeam(id) {
+            appData.teams = appData.teams.filter(t => t.id !== id);
+            saveData();
+            renderTeams();
+        }
+
+        // --- TURNIERBAUM & AUSWÜRFELN ---
+        function generateBracket() {
+            if(!appData.teams || appData.teams.length < 2) {
+                alert("Du brauchst mindestens 2 Teams für einen Turnierbaum!");
+                return;
+            }
+
+            let shuffled = [...appData.teams];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+
+            let round1Matches = [];
+            for (let i = 0; i < shuffled.length; i += 2) {
+                if (i + 1 < shuffled.length) {
+                    round1Matches.push({ id: 'm_' + Math.random().toString(36).substr(2, 5), team1: shuffled[i], team2: shuffled[i+1], winner: null });
+                } else {
+                    round1Matches.push({ id: 'm_' + Math.random().toString(36).substr(2, 5), team1: shuffled[i], team2: { name: "Freilos (Bye)", color: "#666", players: [] }, winner: shuffled[i] });
+                }
+            }
+
+            appData.bracket = { round1: round1Matches };
+            saveData();
+            renderBracketHTML();
+        }
+
+        function renderBracketHTML() {
+            const container = document.getElementById('bracketContainer');
+            if(!appData.bracket || !appData.bracket.round1) {
+                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Noch kein Turnierbaum generiert. Klicke auf "Würfeln & Generieren".</div>`;
+                return;
+            }
+
+            let html = `<div class="space-y-4"><h4 class="text-xs font-bold uppercase tracking-wider text-valoRed border-b border-valoLightGray pb-1">Turnierpaarungen (Runde 1)</h4>`;
+            appData.bracket.round1.forEach((m, idx) => {
+                const t1Name = m.team1 ? m.team1.name : "TBD";
+                const t2Name = m.team2 ? m.team2.name : "TBD";
+                html += `
+                    <div class="bg-valoDarker border border-valoLightGray rounded-lg p-3 space-y-2">
+                        <div class="text-[10px] text-gray-400 font-bold uppercase">Match ${idx + 1}</div>
+                        <div class="space-y-1">
+                            <div onclick="selectBracketWinner('${m.id}', 'team1')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${m.winner && m.winner.name === t1Name ? 'bg-green-900/30 border border-green-500' : 'bg-valoGray/40 hover:bg-valoGray'}">
+                                <span class="text-xs font-bold text-white">${t1Name}</span>
+                                ${m.team1 && m.team1.players && m.team1.players.length > 0 ? `<button onclick="event.stopPropagation(); setLiveStream('${m.team1.name}', '${m.team1.players[0].name}', '${m.team1.players[0].channel}')" class="bg-valoRed text-white text-[10px] px-2 py-0.5 rounded font-bold">LIVE</button>` : ''}
+                            </div>
+                            <div onclick="selectBracketWinner('${m.id}', 'team2')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${m.winner && m.winner.name === t2Name ? 'bg-green-900/30 border border-green-500' : 'bg-valoGray/40 hover:bg-valoGray'}">
+                                <span class="text-xs font-bold text-white">${t2Name}</span>
+                                ${m.team2 && m.team2.players && m.team2.players.length > 0 ? `<button onclick="event.stopPropagation(); setLiveStream('${m.team2.name}', '${m.team2.players[0].name}', '${m.team2.players[0].channel}')" class="bg-valoRed text-white text-[10px] px-2 py-0.5 rounded font-bold">LIVE</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function selectBracketWinner(matchId, teamKey) {
+            const match = appData.bracket.round1.find(m => m.id === matchId);
+            if(match) {
+                match.winner = teamKey === 'team1' ? match.team1 : match.team2;
+                saveData();
+                renderBracketHTML();
+            }
+        }
+    </script>
+</body>
+</html>
