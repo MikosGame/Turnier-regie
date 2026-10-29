@@ -94,20 +94,20 @@
             </div>
         </div>
 
-        <!-- Tab 2: Turnierbaum -->
+        <!-- Tab 2: Turnierbaum (Grafisches Bracket) -->
         <div id="tabBracket" class="flex-1 overflow-y-auto space-y-4 pr-1 hidden">
             <div class="bg-valoGray/40 border border-valoLightGray p-3 rounded-lg flex flex-col gap-2">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold uppercase text-gray-300">Turnier-Modus</span>
                     <button onclick="generateBracket()" class="bg-valoRed hover:bg-red-600 text-white text-xs px-4 py-2 rounded font-bold transition flex items-center gap-1 shadow-lg">
-                        <i class="fa-solid fa-dice"></i> Würfeln & Generieren
+                        <i class="fa-solid fa-dice"></i> Neu Auslosen
                     </button>
                 </div>
-                <p class="text-[11px] text-gray-400">Lost alle angelegten Teams nach dem Zufallsprinzip in ein K.o.-System aus.</p>
+                <p class="text-[11px] text-gray-400">Klicke auf ein Team im Match, um es als Gewinner in die nächste Runde (Halbfinale / Finale) einuziehen zu lassen.</p>
             </div>
 
             <div id="bracketContainer" class="space-y-6">
-                <!-- Generierter Baum -->
+                <!-- Grafischer Turnierbaum -->
             </div>
         </div>
 
@@ -134,7 +134,7 @@
             <span class="text-green-400 flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Cloud-Modus aktiv
             </span>
-            <span>Plug & Play v3.7</span>
+            <span>Plug & Play v3.8</span>
         </footer>
     </div>
 
@@ -181,12 +181,21 @@
                         { id: "p1", name: "TenZ", channel: "tenz" },
                         { id: "p2", name: "Zekken", channel: "zekken" }
                     ]
+                },
+                {
+                    id: "team_2",
+                    name: "FNATIC",
+                    color: "#FF5722",
+                    players: [
+                        { id: "p3", name: "Boaster", channel: "boaster" },
+                        { id: "p4", name: "Derke", channel: "derke" }
+                    ]
                 }
             ],
             bracket: null
         };
 
-        const STORAGE_KEY = "valo_regie_dock_data_v7";
+        const STORAGE_KEY = "valo_regie_dock_data_v8";
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -264,7 +273,6 @@
 
                 if (lastChannel !== data.channel) {
                     lastChannel = data.channel;
-                    // Automatische Erkennung der aktuellen Web-Domain für fehlerfreies Twitch-Embedding
                     const currentHostname = window.location.hostname || "localhost";
                     const iframeUrl = `https://player.twitch.tv/?channel=${data.channel}&parent=${currentHostname}&parent=localhost&parent=127.0.0.1&muted=false&autoplay=true`;
                     container.innerHTML = `<iframe src="${iframeUrl}" height="100%" width="100%" frameborder="0" scrolling="no" allowfullscreen="true"></iframe>`;
@@ -442,7 +450,7 @@
             renderTeams();
         }
 
-        // --- TURNIERBAUM & AUSWÜRFELN ---
+        // --- VISUELLER TURNIERBAUM (BRACKET GENERATOR) ---
         function generateBracket() {
             if(!appData.teams || appData.teams.length < 2) {
                 alert("Du brauchst mindestens 2 Teams für einen Turnierbaum!");
@@ -455,16 +463,22 @@
                 [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
 
-            let round1Matches = [];
+            let round1 = [];
             for (let i = 0; i < shuffled.length; i += 2) {
                 if (i + 1 < shuffled.length) {
-                    round1Matches.push({ id: 'm_' + Math.random().toString(36).substr(2, 5), team1: shuffled[i], team2: shuffled[i+1], winner: null });
+                    round1.push({ id: 'm_r1_' + Math.random().toString(36).substr(2, 4), team1: shuffled[i], team2: shuffled[i+1], winner: null });
                 } else {
-                    round1Matches.push({ id: 'm_' + Math.random().toString(36).substr(2, 5), team1: shuffled[i], team2: { name: "Freilos (Bye)", color: "#666", players: [] }, winner: shuffled[i] });
+                    round1.push({ id: 'm_r1_' + Math.random().toString(36).substr(2, 4), team1: shuffled[i], team2: { name: "Freilos (Bye)", color: "#666", players: [] }, winner: shuffled[i] });
                 }
             }
 
-            appData.bracket = { round1: round1Matches };
+            // Runde 2 (Halbfinale/Finale Struktur vorbereiten)
+            let round2 = [];
+            for (let i = 0; i < round1.length; i += 2) {
+                round2.push({ id: 'm_r2_' + Math.random().toString(36).substr(2, 4), team1: null, team2: null, winner: null });
+            }
+
+            appData.bracket = { round1, round2 };
             saveData();
             renderBracketHTML();
         }
@@ -472,41 +486,121 @@
         function renderBracketHTML() {
             const container = document.getElementById('bracketContainer');
             if(!appData.bracket || !appData.bracket.round1) {
-                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Noch kein Turnierbaum generiert. Klicke auf "Würfeln & Generieren".</div>`;
+                container.innerHTML = `<div class="text-center text-xs text-gray-500 py-6">Noch kein Turnierbaum generiert. Klicke auf "Neu Auslosen".</div>`;
                 return;
             }
 
-            let html = `<div class="space-y-4"><h4 class="text-xs font-bold uppercase tracking-wider text-valoRed border-b border-valoLightGray pb-1">Turnierpaarungen (Runde 1)</h4>`;
-            appData.bracket.round1.forEach((m, idx) => {
-                const t1Name = m.team1 ? m.team1.name : "TBD";
-                const t2Name = m.team2 ? m.team2.name : "TBD";
+            const { round1, round2 } = appData.bracket;
+
+            let html = `<div class="space-y-6">`;
+            
+            // Runde 1 Ansicht
+            html += `<div class="space-y-3">`;
+            html += `<h4 class="text-[11px] font-black uppercase tracking-wider text-valoRed border-b border-valoLightGray pb-1">Runde 1 (Viertel- / Vorrunde)</h4>`;
+            
+            round1.forEach((m, idx) => {
+                const t1 = m.team1 ? m.team1.name : "TBD";
+                const t2 = m.team2 ? m.team2.name : "TBD";
+                const t1Won = m.winner && m.winner.name === t1;
+                const t2Won = m.winner && m.winner.name === t2;
+
                 html += `
-                    <div class="bg-valoDarker border border-valoLightGray rounded-lg p-3 space-y-2">
-                        <div class="text-[10px] text-gray-400 font-bold uppercase">Match ${idx + 1}</div>
-                        <div class="space-y-1">
-                            <div onclick="selectBracketWinner('${m.id}', 'team1')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${m.winner && m.winner.name === t1Name ? 'bg-green-900/30 border border-green-500' : 'bg-valoGray/40 hover:bg-valoGray'}">
-                                <span class="text-xs font-bold text-white">${t1Name}</span>
-                                ${m.team1 && m.team1.players && m.team1.players.length > 0 ? `<button onclick="event.stopPropagation(); setLiveStream('${m.team1.name}', '${m.team1.players[0].name}', '${m.team1.players[0].channel}')" class="bg-valoRed text-white text-[10px] px-2 py-0.5 rounded font-bold">LIVE</button>` : ''}
+                    <div class="bg-valoDarker border border-valoLightGray rounded-lg p-2.5 space-y-1.5 shadow-md">
+                        <div class="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase">
+                            <span>Match ${idx + 1}</span>
+                            <span class="text-valoCyan">Klick auf Sieger</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-1">
+                            <div onclick="selectWinner('round1', '${m.id}', 'team1')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${t1Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 hover:bg-valoGray text-gray-300'}">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team1?.color || '#555'}"></span>
+                                    <span class="text-xs">${t1}</span>
+                                </div>
+                                ${t1Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
                             </div>
-                            <div onclick="selectBracketWinner('${m.id}', 'team2')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${m.winner && m.winner.name === t2Name ? 'bg-green-900/30 border border-green-500' : 'bg-valoGray/40 hover:bg-valoGray'}">
-                                <span class="text-xs font-bold text-white">${t2Name}</span>
-                                ${m.team2 && m.team2.players && m.team2.players.length > 0 ? `<button onclick="event.stopPropagation(); setLiveStream('${m.team2.name}', '${m.team2.players[0].name}', '${m.team2.players[0].channel}')" class="bg-valoRed text-white text-[10px] px-2 py-0.5 rounded font-bold">LIVE</button>` : ''}
+                            <div onclick="selectWinner('round1', '${m.id}', 'team2')" class="flex justify-between items-center p-2 rounded cursor-pointer transition ${t2Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 hover:bg-valoGray text-gray-300'}">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team2?.color || '#555'}"></span>
+                                    <span class="text-xs">${t2}</span>
+                                </div>
+                                ${t2Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
                             </div>
                         </div>
                     </div>
                 `;
             });
             html += `</div>`;
+
+            // Runde 2 (Nächste Stufe / Halbfinale / Finale) falls vorhanden
+            if(round2 && round2.length > 0) {
+                html += `<div class="space-y-3 pt-2">`;
+                html += `<h4 class="text-[11px] font-black uppercase tracking-wider text-valoRed border-b border-valoLightGray pb-1">Nächste Runde (Halbfinale / Finale)</h4>`;
+                
+                round2.forEach((m, idx) => {
+                    const t1 = m.team1 ? m.team1.name : "Gewinner Match " + (idx * 2 + 1);
+                    const t2 = m.team2 ? m.team2.name : "Gewinner Match " + (idx * 2 + 2);
+                    const t1Won = m.winner && m.winner.name === m.team1?.name;
+                    const t2Won = m.winner && m.winner.name === m.team2?.name;
+                    const hasTeams = m.team1 && m.team2;
+
+                    html += `
+                        <div class="bg-valoDarker border border-valoLightGray rounded-lg p-2.5 space-y-1.5 shadow-md">
+                            <div class="text-[10px] text-gray-400 font-bold uppercase">Nächstes Match ${idx + 1}</div>
+                            <div class="grid grid-cols-1 gap-1">
+                                <div ${hasTeams ? `onclick="selectWinner('round2', '${m.id}', 'team1')"` : ''} class="flex justify-between items-center p-2 rounded ${hasTeams ? 'cursor-pointer' : 'opacity-50'} transition ${t1Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 text-gray-300'}">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team1?.color || '#555'}"></span>
+                                        <span class="text-xs">${t1}</span>
+                                    </div>
+                                    ${t1Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
+                                </div>
+                                <div ${hasTeams ? `onclick="selectWinner('round2', '${m.id}', 'team2')"` : ''} class="flex justify-between items-center p-2 rounded ${hasTeams ? 'cursor-pointer' : 'opacity-50'} transition ${t2Won ? 'bg-valoRed/20 border border-valoRed text-white font-bold' : 'bg-valoGray/40 text-gray-300'}">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${m.team2?.color || '#555'}"></span>
+                                        <span class="text-xs">${t2}</span>
+                                    </div>
+                                    ${t2Won ? '<i class="fa-solid fa-trophy text-valoRed text-xs"></i>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            html += `</div>`;
             container.innerHTML = html;
         }
 
-        function selectBracketWinner(matchId, teamKey) {
-            const match = appData.bracket.round1.find(m => m.id === matchId);
-            if(match) {
-                match.winner = teamKey === 'team1' ? match.team1 : match.team2;
-                saveData();
-                renderBracketHTML();
+        function selectWinner(roundName, matchId, teamKey) {
+            let round = appData.bracket[roundName];
+            let match = round.find(m => m.id === matchId);
+            if (!match) return;
+
+            let winningTeam = teamKey === 'team1' ? match.team1 : match.team2;
+            if (!winningTeam || winningTeam.name.includes("Freilos") || winningTeam.name.includes("TBD")) return;
+
+            match.winner = winningTeam;
+
+            // Automatischer Aufstieg in die nächste Runde (Runde 2)
+            if (roundName === 'round1' && appData.bracket.round2) {
+                let r1Index = appData.bracket.round1.findIndex(m => m.id === matchId);
+                let r2Index = Math.floor(r1Index / 2);
+                let r2Match = appData.bracket.round2[r2Index];
+                
+                if (r2Match) {
+                    if (r1Index % 2 === 0) {
+                        r2Match.team1 = winningTeam;
+                    } else {
+                        r2Match.team2 = winningTeam;
+                    }
+                    // Wenn Gewinner gewechselt wird, alten R2-Winner zurücksetzen
+                    r2Match.winner = null;
+                }
             }
+
+            saveData();
+            renderBracketHTML();
         }
     </script>
 </body>
